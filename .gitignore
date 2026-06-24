@@ -1,0 +1,13 @@
+# 白名單模式：預設忽略全部，只放行 telegram-talk 的 bot 自動化檔案
+# 確保 secrets（notion\config.js、*.env、multi-model\config.js）、
+# 巢狀 repo（shopee-boost、stock-info）、執行期狀態、大型資料夾全部排除
+*
+
+# 放行版控目標
+!.gitignore
+!README.md
+!Claude Telegram.bat
+!bot-settings.json
+!telegram-watchdog.ps1
+!telegram-daily-restart.ps1
+!bot-health.ps1
