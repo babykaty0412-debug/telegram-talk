@@ -1,17 +1,12 @@
 ﻿# Telegram Bot 守護腳本（每 10 分鐘由排程觸發）
-# 功能：
-#   1. Bot 進程死了 → 自動重啟，失敗則嘗試 npm 修復
-#   2. Bot 活著但心跳停滯 (>=2h) → 疑似額度耗盡 → 推 TG 通知 + 等 5h 後自動重啟
-#   3. 額度恢復（心跳更新）→ 推 TG "已恢復"
-#   4. TG 接收槽被新 session 搶走 → 靜默重啟奪回（不發通知）
+# 只看「結構健康」，不用心跳猜額度（安靜沒人傳訊時心跳本來就停，不代表壞）：
+#   Layer 1：Bot 進程死了 → 自動重啟，失敗則 npm 修復
+#   Layer 2：TG 接收槽被另一個 --channels 進程搶走 → 靜默重啟奪回
+#   Layer 3：Bot 活著但收訊進程(bun poller)不在 → 殭屍 → 重啟
+# 健康就靜默結束。判斷壞沒壞另有 bot-health.ps1。
 
 $ErrorActionPreference = 'Continue'
-$logFile          = 'E:\claude\telegram-watchdog.log'
-$heartbeatFile    = 'E:\claude\bot-heartbeat.txt'
-$quotaStateFile   = 'E:\claude\bot-quota-suspected.txt'
-$lastRestartFile  = 'E:\claude\bot-quota-restarted.txt'
-$quotaWindowHours     = 5
-$heartbeatStaleHours  = 2
+$logFile = 'E:\claude\telegram-watchdog.log'
 $env:PATH = "C:\nvm4w\nodejs;$env:PATH"
 
 function WLog([string]$m) {
@@ -87,7 +82,7 @@ if (-not (Test-BotAlive)) {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Layer 2：進程活著 → 確認 TG 接收槽沒被搶
+# Layer 2：進程活著 → 確認 TG 接收槽沒被另一個 --channels 搶走
 # ─────────────────────────────────────────────────────────────────────────────
 
 $botProc = Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
@@ -106,7 +101,7 @@ if ($botProc -and $lastChannelProc -and ($botProc.ProcessId -ne $lastChannelProc
     Kill-Bot
     if (Start-Bot) {
         WLog "[TG-SLOT-RESTORED] Bot restarted and now holds TG slot."
-        # 槽被搶是開新 Claude 視窗的正常副作用，靜默修好即可（不發通知、不動心跳）
+        # 槽被搶是開新 Claude 視窗的正常副作用，靜默修好即可（不發通知）
     } else {
         WLog "[TG-SLOT-RESTORE-FAIL] Bot restart failed."
         Send-Telegram "⚠️ TG 接收槽被搶，Bot 重啟失敗，請手動雙擊 E:\claude\Claude Telegram.bat（$(Get-Date -Format 'HH:mm')）"
@@ -115,71 +110,45 @@ if ($botProc -and $lastChannelProc -and ($botProc.ProcessId -ne $lastChannelProc
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Layer 3：接收槽正常 → 檢查心跳
+# Layer 3：結構健康 — Bot 活著但收訊進程(bun poller)不在 → 殭屍 → 重啟
+# 不再用心跳猜額度：沒人傳訊時心跳本來就停，重啟也救不了額度，只會洗版。
 # ─────────────────────────────────────────────────────────────────────────────
 
-if (-not (Test-Path $heartbeatFile)) {
+# 剛啟動的 bot 給 15 分鐘把 bun 拉起來，避免 startup 空窗誤判 + 防重啟迴圈
+$botAgeMin = (New-TimeSpan -Start $botProc.CreationDate -End (Get-Date)).TotalMinutes
+if ($botAgeMin -lt 15) {
+    WLog "[STARTING] Bot up $([math]::Round($botAgeMin,1))min, skip poller check."
     exit 0
 }
 
-$lastBeat   = [datetime](Get-Content $heartbeatFile -Encoding UTF8 -TotalCount 1)
-$staleHours = (New-TimeSpan -Start $lastBeat -End (Get-Date)).TotalHours
+# telegram bun(server.ts) 必須存在且是 bot 的子孫進程
+$serverBun = Get-CimInstance Win32_Process -Filter "Name='bun.exe'" |
+    Where-Object { $_.CommandLine -match 'server\.ts' } |
+    Select-Object -First 1
 
-if ($staleHours -lt $heartbeatStaleHours) {
-    # 心跳新鮮 → 確認是否從額度耗盡中恢復
-    if (Test-Path $quotaStateFile) {
-        Remove-Item $quotaStateFile -ErrorAction SilentlyContinue
-        Remove-Item $lastRestartFile -ErrorAction SilentlyContinue
-        WLog "[RECOVERED] Heartbeat fresh after quota suspicion. Bot resumed."
-        Send-Telegram "✅ Telegram Bot 額度已恢復！Bot 已自動繼續（最後心跳：$($lastBeat.ToString('HH:mm'))）"
+$bunHealthy = $false
+if ($serverBun) {
+    $p = $serverBun.ParentProcessId
+    for ($i = 0; $i -lt 8 -and $p; $i++) {
+        if ($p -eq $botProc.ProcessId) { $bunHealthy = $true; break }
+        $anc = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
+        if (-not $anc) { break }
+        $p = $anc.ParentProcessId
     }
-    exit 0
 }
 
-WLog "[HEARTBEAT-STALE] Last beat: $($lastBeat.ToString('HH:mm')), stale: $([math]::Round($staleHours,1))h"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Layer 4：心跳停滯 ≥ 2h → 疑似額度耗盡
-# ─────────────────────────────────────────────────────────────────────────────
-
-if (-not (Test-Path $quotaStateFile)) {
-    Set-Content $quotaStateFile (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding UTF8
-    $estimatedReset = $lastBeat.AddHours($quotaWindowHours).ToString('HH:mm')
-    WLog "[QUOTA?] Suspected quota exhaustion. Estimated reset: $estimatedReset"
-    Send-Telegram "⏸️ Bot 進程活著，但 $([math]::Round($staleHours, 1)) 小時無回應`n疑似 Claude Pro 額度耗盡`n最後活躍：$($lastBeat.ToString('HH:mm'))，預計恢復：約 $estimatedReset`n額度恢復後守護排程將自動重啟 Bot"
-    exit 0
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Layer 5：已通知過 → 等 5h 視窗後重啟（防無限循環：用獨立檔記錄上次重啟時間）
-# ─────────────────────────────────────────────────────────────────────────────
-
-$waitedHours = (New-TimeSpan -Start $lastBeat -End (Get-Date)).TotalHours
-
-if ($waitedHours -ge $quotaWindowHours) {
-
-    # 防無限重啟：確認距上次重啟已滿 $quotaWindowHours
-    if (Test-Path $lastRestartFile) {
-        $lastRestartAt   = [datetime](Get-Content $lastRestartFile -Encoding UTF8 -TotalCount 1)
-        $hoursSinceRestart = (New-TimeSpan -Start $lastRestartAt -End (Get-Date)).TotalHours
-        if ($hoursSinceRestart -lt $quotaWindowHours) {
-            WLog "[WAITING-AFTER-RESTART] Last restart $([math]::Round($hoursSinceRestart,1))h ago. Next retry at $($lastRestartAt.AddHours($quotaWindowHours).ToString('HH:mm'))."
-            exit 0
-        }
-    }
-
-    WLog "[QUOTA-RETRY] $([math]::Round($waitedHours,1))h passed. Killing and restarting..."
+if (-not $bunHealthy) {
+    WLog "[ZOMBIE] Bot alive but telegram poller(bun) missing/orphaned. Restarting..."
     Kill-Bot
     if (Start-Bot) {
-        Set-Content $lastRestartFile (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding UTF8
-        WLog "[QUOTA-RESTART] Bot restarted after quota window."
-        Send-Telegram "🔄 Claude Pro 額度視窗已過，Bot 已自動重啟（$(Get-Date -Format 'HH:mm')）"
+        WLog "[ZOMBIE-RESTORED] Bot restarted with healthy poller."
+        Send-Telegram "🔧 Telegram Bot 收訊進程異常（poller 不在），守護已自動重啟（$(Get-Date -Format 'HH:mm')）"
     } else {
-        WLog "[QUOTA-RESTART-FAIL] Bot restart failed after quota window."
-        Send-Telegram "⚠️ 額度視窗已過但 Bot 重啟失敗，請手動雙擊 E:\claude\Claude Telegram.bat（$(Get-Date -Format 'HH:mm')）"
+        WLog "[ZOMBIE-RESTORE-FAIL] Restart failed."
+        Send-Telegram "⚠️ Telegram Bot 收訊進程異常且重啟失敗，請手動雙擊 E:\claude\Claude Telegram.bat（$(Get-Date -Format 'HH:mm')）"
     }
-
-} else {
-
-    WLog "[WAITING] Quota window: $([math]::Round($waitedHours,1))h / $quotaWindowHours h. Waiting..."
+    exit 0
 }
+
+# 結構健康 → 靜默結束（心跳停滯不代表壞）
+exit 0
