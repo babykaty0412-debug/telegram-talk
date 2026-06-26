@@ -30,7 +30,7 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 |------|------|
 | `Claude Telegram.bat` | production 啟動（`--settings`）|
 | `bot-settings.json` | bot 專用：單獨開啟 telegram plugin |
-| `telegram-watchdog.ps1` | 守護排程（每 10 分鐘）：進程死了重啟、接收槽被搶奪回、心跳停滯偵測額度耗盡並於 5h 視窗後重啟。Layer 2 只比對 `--channels` 進程，不誤判互動 worker |
+| `telegram-watchdog.ps1` | 守護排程（每 10 分鐘）**只看結構健康**：進程死了重啟、接收槽被搶奪回、收訊進程(bun)不在(殭屍)重啟。2026-06-25 移除「用心跳猜額度」（安靜沒人傳訊心跳本來就停，舊版會誤判額度耗盡每 5h 發 ⏸️+🔄 洗版）。Layer 2 只比對 `--channels`，不誤判互動 worker |
 | `telegram-daily-restart.ps1` | 每日重啟（需用管理員建排程）|
 | `bot-health.ps1` | 一眼健檢（結構檢查，不需 bot 回覆、不耗額度）：`& E:\claude\bot-health.ps1` → `✅ 正常` / `❌ 壞了+原因`，exit 0/1 |
 
@@ -41,6 +41,21 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 ## 驗證入站
 
 開 Telegram 桌面版 → 私訊 bot → 看回覆 + `bot-heartbeat.txt` 是否更新。
+
+## 權限設定（避免 bot 回覆被守門員攔，2026-06-26）
+
+`~/.claude/settings.json` 的 `permissions.allow` 需包含這幾個 TG 工具，否則 bot 每次回訊都被 PermissionRequest 守門員攔一下：
+
+```
+mcp__plugin_telegram_telegram__reply
+mcp__plugin_telegram_telegram__react
+mcp__plugin_telegram_telegram__edit_message
+mcp__plugin_telegram_telegram__download_attachment
+```
+
+另：守門員 prompt 已把「網路搜尋（WebSearch）、抓公開非敏感網頁（WebFetch）」列入自動允許；抓非公開／內網／個資／金流網址仍會 ask。
+
+⚠️ 改的是全域 user settings，**正在跑的 bot 要下次重啟才吃到新規則**。
 
 ## 注意
 
