@@ -1,13 +1,13 @@
 ---
-doc_type: system
+doc_type: glossary
 doc_id: GLOSS-001
 title: PAOS Architecture Glossary
 status: accepted
-version: "1.0"
+version: "2.0"
 date: 2026-06-27
 priority: "00"
 audience: [self, ai, engineer, automation]
-tags: [ubiquitous-language, ddd, glossary, naming]
+tags: [ubiquitous-language, ddd, glossary, naming, single-source-of-truth]
 ---
 
 # PAOS Architecture Glossary
@@ -22,68 +22,40 @@ tags: [ubiquitous-language, ddd, glossary, naming]
 
 大型系統失敗最常見的原因之一，是不同的人用相同的詞描述不同的事，或者用不同的詞描述相同的事。
 
-在 DDD（Domain-Driven Design）裡，這份文件的功能叫做**通用語言（Ubiquitous Language）**：一套整個系統共用的詞彙，讓人、AI、工程師都在說同一種語言。
+這份文件的功能是 DDD（Domain-Driven Design）中的**通用語言（Ubiquitous Language）**：讓人、AI、工程師都在說同一種語言。
 
-本文件的目的不只是「定義術語」，更是定義每個概念**為什麼存在**。當你需要新增一個概念時，先問：它的 Why 是什麼？如果無法清楚回答，它可能不需要存在，或者應該合併進現有概念。
+### Single Source of Truth（唯一真實來源）
 
----
+**這是整個 PAOS 文件系統最重要的規則：**
 
-## Concept Map（概念圖）
+1. 新增任何概念，必須先更新本文件。
+2. 修改任何術語名稱，必須先更新本文件。
+3. 任何 ADR、架構文件、Domain 文件，只能引用本文件中已定義的術語，**不能自行創造新名詞**。
+4. 程式碼中的類別名、模組名、事件名，必須與本文件的 Canonical Name 一致。
 
-```
-PAOS Platform（整個系統）
-│
-├── Application（使用者介面層）
-│      ├── telegram-bot/        ← Channel Adapter 的實作
-│      ├── web-ui/
-│      ├── dashboard/
-│      ├── cli/
-│      └── api/
-│
-├── Core（平台核心）
-│      ├── Workflow Engine       ← 協調 Workflow 執行
-│      ├── Scheduler             ← 管理時間觸發
-│      ├── Event Bus             ← 內部通訊樞紐
-│      ├── Priority Engine       ← 決定重要性排序
-│      └── Notification          ← 交付通知
-│
-├── Services（共用基礎服務）
-│      ├── Memory Service        ← 三層記憶管理
-│      ├── Knowledge Service     ← 領域知識管理
-│      ├── Validation Service    ← AI 輸出品質控制
-│      └── AI Provider Layer     ← Claude/GPT/Gemini 抽象
-│
-├── Workers（執行層）
-│      ├── Collector             ← 收集外部資料
-│      ├── Parser                ← 解析原始資料
-│      ├── Analyzer              ← AI 推理與分析
-│      ├── Validator             ← 品質驗證
-│      └── Reporter              ← 格式化並交付結果
-│
-└── Domains（業務邏輯層）
-       ├── stocks/               ← 股票追蹤
-       ├── secondhand/           ← 二手商品
-       ├── ai-news/              ← AI 動態
-       └── [future domains...]
-```
+違反此規則的後果：不同文件開始各自發明名詞，系統失去一致性，無法長期維護。
+
+### 術語的生命週期
+
+新術語被引入時狀態為 `Experimental`，在設計穩定後升為 `Evolving`，架構定稿後升為 `Stable`。  
+任何 `Stable` 術語的更名需要對應的 Decision History 記錄與 ADR 引用。
 
 ---
 
-## 概念關係矩陣
+## 八個概念層（Concept Layers）
 
-| 概念 | 包含 | 被包含於 | 依賴 | 不直接互動 |
-|---|---|---|---|---|
-| Platform | Core, Application, Domain | — | — | — |
-| Application | Adapter | Platform | Core | Domain |
-| Core | Workflow, Scheduler, Event Bus | Platform | Services | Domain |
-| Domain | Workflow, Knowledge, Collector | Platform | Core Services | 其他 Domain |
-| Workflow | Task, Trigger, Pipeline | Core / Domain | Event Bus, Worker | — |
-| Worker | Agent | Runtime | Event Bus, Knowledge | 其他 Worker |
-| Agent | Tool | Worker | Context, Knowledge, AI Provider | — |
-| Task | — | Task Queue | — | — |
-| Event | — | Event Bus | — | — |
-| Memory | Working, Short-term, Long-term | Services | — | — |
-| Knowledge | Domain facts | Services | — | Memory |
+每個術語只歸屬一個主要 Layer：
+
+| Layer | 說明 | 主要術語 |
+|---|---|---|
+| **Platform Layer** | 系統最高層抽象 | Platform, Core, Service, Provider |
+| **Application Layer** | 使用者介面與外部 Channel | Application, Dashboard, Adapter, Project |
+| **Domain Layer** | 業務領域知識與規則 | Domain, Plugin |
+| **Workflow Layer** | 流程編排與觸發 | Workflow, Pipeline, Job, Trigger |
+| **Execution Layer** | 任務執行單元 | Worker, Collector, Parser, Analyzer, Reporter, Validator, Agent, Tool, Action, Skill |
+| **Knowledge Layer** | 領域知識管理 | Knowledge |
+| **Memory Layer** | 狀態與上下文管理 | Memory, Context |
+| **Infrastructure Layer** | 跨層基礎設施 | Event, Task, Scheduler, Notification |
 
 ---
 
@@ -93,408 +65,627 @@ PAOS Platform（整個系統）
 
 ### Action
 
-| 欄位 | 內容 |
+| | |
 |---|---|
+| **Canonical Name** | Action |
 | **Layer** | Execution Layer |
-| **Owner** | Workflow Engine / Permission Model（ADR-0009） |
+| **Stability** | Stable |
+| **Owner** | Permission Model（ADR-0009）／ Workflow Engine |
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 瞬間執行，完成即結束 |
-| **Core Concept** | Yes |
-| **Replaceable** | No |
 
 **Why does it exist?**  
-系統需要區分「描述事情」（Event）和「做一件事」（Action）。Action 有副作用——它改變系統狀態。因為有副作用，Action 必須受到 Permission 模型的管控。
+系統需要區分「描述事情」（Event）和「做一件事」（Action）。Action 有副作用——它改變系統狀態。因為有副作用，Action 必須受到 Permission 模型管控，並記入 Audit Log。
 
 **Definition**  
 一個有副作用的原子操作——執行後會改變系統狀態（寫入資料庫、發送訊息、呼叫外部 API）。
 
+**Anti-Definition — 不是什麼**  
+不是 Event（已發生的事實，無副作用）；  
+不是 Task（待執行的工作單元，包含 payload 和狀態）；  
+不是 Workflow（多步驟流程）。  
+→ Action 是有副作用的單一原子操作。
+
 **Responsibility**  
-代表「現在要做的一件具體事情」，帶有明確的執行對象和預期結果。
+代表「現在要做的一件具體事情」，帶有明確執行對象和預期結果。
 
 **Out of Scope**  
 不包含決策邏輯（由 Agent 決定）；不包含排程（由 Scheduler 決定）；純讀取操作不算 Action。
 
-**Relationships**  
-Action 由 Agent 或 Workflow 發起；所有 Action 記入 Audit Log；高風險 Action 需要 Permission 授權（ADR-0009）。
+**Relationships**
+- **Parent**: Workflow / Agent（Action 的發起者）
+- **Children**: 各種具體操作（`send_telegram_message`, `write_knowledge`, `call_api`）
+- **Depends On**: Permission Model, Audit Log
+- **Used By**: Agent, Workflow Engine
 
 **Examples**  
 `send_telegram_message`、`write_knowledge`、`create_task`、`call_external_api`
+
+**Cross References**  
+- ADR-0009: Security & Permission Strategy（Permission 等級定義）  
+- ADR-0012: Execution Model（Action 作為觸發結果）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Adapter
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Interface Layer（Application 內部） |
-| **Owner** | 各個 Application |
+| **Canonical Name** | Adapter |
+| **Layer** | Application Layer |
+| **Stability** | Stable |
+| **Owner** | 各個 Application（apps/ 目錄下）|
+| **Aliases** | — |
+| **Deprecated Names** | Connector（避免使用）|
 | **Lifecycle** | 與 Application 同生命週期 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（可換成不同平台的 Adapter） |
 
 **Why does it exist?**  
-外部系統（Telegram、Discord、GitHub）各有自己的 API 格式。Adapter 的存在是為了讓 PAOS Core 不需要知道 Telegram 的 API 長什麼樣——Core 只說「發一條訊息」，Adapter 負責翻譯成 Telegram 的格式。
+外部系統（Telegram、Discord、GitHub）各有自己的 API 格式。Adapter 讓 PAOS Core 不需要知道 Telegram 的 API——Core 只說「發一條訊息」，Adapter 負責翻譯。
 
 **Definition**  
 在 PAOS 內部介面與外部系統介面之間雙向轉換的元件。
 
+**Anti-Definition — 不是什麼**  
+不是 Provider（單向服務接口，用於 AI）；  
+不是 Service（長期運行的共用服務）；  
+不是 Plugin（第三方擴充）。  
+→ Adapter 是 PAOS 與外部 Channel 的雙向橋梁。
+
 **Responsibility**  
-- 接收外部輸入，轉換成 PAOS 的標準 `UserMessage` 格式
-- 接收 PAOS 的輸出，轉換成外部系統可理解的格式
+接收外部輸入，轉換成 PAOS 標準 `UserMessage` 格式；接收 PAOS 輸出，轉換成外部系統格式。
 
 **Out of Scope**  
 不包含業務邏輯；不處理 Memory 或 Knowledge；不直接與 Core 以外的元件互動。
 
-**Relationships**  
-Adapter 是 Application 的一部分；Application = Adapter + 使用者介面。
+**Relationships**
+- **Parent**: Application（Adapter 是 Application 的一部分）
+- **Children**: 各種具體 Adapter（`TelegramAdapter`, `DiscordAdapter`）
+- **Depends On**: Event Bus（與 Core 通訊）
+- **Used By**: Application（包裝 Adapter）、Core（接收標準化輸入）
 
 **Examples**  
 `TelegramAdapter`、`DiscordAdapter`、`GitHubWebhookAdapter`
+
+**Cross References**  
+- ADR-0002: Platform Strategy（平台無關性設計）  
+- ADR-0014: Communication Strategy（Adapter 與 Core 的通訊方式）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Agent
 
-| 欄位 | 內容 |
+| | |
 |---|---|
+| **Canonical Name** | Agent |
 | **Layer** | Execution Layer |
-| **Owner** | Worker（由 Worker 負責 Agent 的生命週期） |
-| **Lifecycle** | 隨任務建立，任務完成即銷毀 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（可替換背後的 AI Provider） |
+| **Stability** | Stable |
+| **Owner** | Worker Pool（Worker 管理 Agent 生命週期）|
+| **Aliases** | AI Worker（僅歷史文件中出現）|
+| **Deprecated Names** | Bot（避免混用，Bot 特指 Telegram Bot）|
+| **Lifecycle** | 隨 Task 建立，Task 完成即銷毀 |
 
 **Why does it exist?**  
-PAOS 需要 AI 不只是「回應」，而是能夠「推理並採取行動」。Agent 的存在就是讓 AI 有能力使用 Tool、查詢 Knowledge、做出多步驟決策，而不只是生成文字。
+PAOS 需要 AI 能夠「推理並採取行動」，而不只是「回應」。Agent 讓 AI 有能力使用 Tool、查詢 Knowledge、做出多步驟決策。
 
 **Definition**  
-一個 AI 驅動的自主執行單元，能使用 Tools、查詢 Context，並產生結構化輸出來完成特定任務。
+一個 AI 驅動的自主執行單元，能使用 Tools、查詢 Context，並產生結構化輸出完成特定 Task。
+
+**Anti-Definition — 不是什麼**  
+不是 Worker（執行環境容器）；  
+不是 Tool（單一能力函數）；  
+不是 Service（長期運行元件）；  
+不是 Bot（Telegram Bot 是 Application，不是 Agent）。  
+→ Agent 是使用 AI 進行推理並決策的執行主體，運行在 Worker 內。
 
 **Responsibility**  
-決定如何完成一個 Task（選擇使用哪些 Tool、以什麼順序）；呼叫 AI Provider；輸出結構化結果。
+決定如何完成一個 Task（選擇 Tool、決定順序）；呼叫 AI Provider；輸出結構化結果。
 
 **Out of Scope**  
-不管理自己的排程；不直接持久化資料；不直接與 Channel 通訊；不管理自己的生命週期（由 Worker 管理）。
+不管理自己的排程；不直接持久化資料；不直接與 Channel 通訊；不管理自己的生命週期（Worker 管理）。
 
-**Relationships**  
-Agent 運行在 Worker 內；Agent 使用 Tool；Agent 讀取 Context；Agent 的輸出透過 Event Bus 回傳。
+**Relationships**
+- **Parent**: Worker（Agent 運行在 Worker 內）
+- **Children**: Tool calls（Agent 使用的 Tools）
+- **Depends On**: Tool, Context, AI Provider（透過 Provider 介面）
+- **Used By**: Analyzer Worker（最常見的 Agent 宿主）
 
 **Examples**  
-`StockPriceAnalyzer`（分析股票資料）、`SecondhandClassifier`（分類二手商品）、`NewsSummarizer`（摘要新聞）
+`StockPriceAnalyzer`、`SecondhandClassifier`、`NewsSummarizer`
 
-> ⚠️ **命名規則**：Agent 的名稱應反映它「分析什麼」，不應使用 `{Domain}Agent` 這種模式（見 Naming Convention）。
+**Cross References**  
+- ADR-0003: AI Provider Strategy（Agent 呼叫 AI 的方式）  
+- ADR-0009: Security & Permission Strategy（Agent 的權限邊界）  
+- ADR-0011: Runtime Strategy（Agent 在 Worker 內的執行模型）
+
+**Decision History**  
+— 無變更記錄（`Bot` 從未被採用為 Canonical Name）
 
 ---
 
 ### Analyzer
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Worker 類型） |
+| **Canonical Name** | Analyzer |
+| **Layer** | Execution Layer |
+| **Stability** | Stable |
 | **Owner** | Worker Pool |
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 短期 Worker，分析完成即退出 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-資料收集（Collector）和資料解析（Parser）都不需要 AI。Analyzer 是 AI 真正介入的地方——它對已結構化的資料做推理、評分、摘要。分離這個職責確保 AI 計算只在需要時發生。
+收集（Collector）和解析（Parser）不需要 AI。Analyzer 是 AI 真正介入的地方——對已結構化的資料做推理、評分、摘要。分離此職責確保 AI 計算只在需要時發生。
 
 **Definition**  
 一種專門的 Worker，負責對已解析的結構化資料執行 AI 分析，產生洞察、評分或摘要。
 
+**Anti-Definition — 不是什麼**  
+不是 Collector（負責取得原始資料）；  
+不是 Parser（負責格式轉換，不使用 AI）；  
+不是 Reporter（負責格式化展示結果）。  
+→ Analyzer 是 AI 推理的執行容器，介於 Parser 和 Reporter 之間。
+
 **Responsibility**  
-呼叫 AI Provider（透過 AIProvider 介面）；輸出分析結果；觸發後續 Event。
+呼叫 AI Provider；輸出分析結果；觸發後續 Event。
 
 **Out of Scope**  
-不收集原始資料（Collector 的職責）；不解析格式（Parser 的職責）；不交付通知（Notification 的職責）。
+不收集原始資料；不解析格式；不交付通知。
 
-**Relationships**  
-Analyzer 在 Parser 之後執行；Analyzer 的輸出送給 Priority Engine；Analyzer 使用 AI Provider。
+**Relationships**
+- **Parent**: Worker（Analyzer 是一種 Worker）
+- **Children**: Agent（Analyzer 內部運行 Agent）
+- **Depends On**: AI Provider, Knowledge（查詢領域規則）, Context（組裝 AI 輸入）
+- **Used By**: Workflow Engine（Pipeline 中第三步）、Priority Engine（接收分析結果）
 
-**Examples**  
-`StockSentimentAnalyzer`、`PriceValueAnalyzer`、`NewsPriorityAnalyzer`
+**Cross References**  
+- ADR-0003: AI Provider Strategy  
+- ADR-0011: Runtime Strategy（Worker 類型定義）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Application
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Interface Layer |
-| **Owner** | apps/ 目錄下各自的 package |
-| **Lifecycle** | 與部署週期相同（D1/D2/D3） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（可以新增或移除特定 Application） |
+| **Canonical Name** | Application |
+| **Layer** | Application Layer |
+| **Stability** | Stable |
+| **Owner** | apps/ 目錄下各 package |
+| **Aliases** | App（口語）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 與部署週期相同（D1/D2/D3）|
 
 **Why does it exist?**  
-使用者需要透過不同的介面（手機、瀏覽器、CLI）使用 PAOS，但 Core 不應該知道「介面長什麼樣子」。Application 的存在是讓 Core 保持介面無關（interface-agnostic）。
+使用者需要透過不同介面使用 PAOS，但 Core 不應知道「介面長什麼樣子」。Application 讓 Core 保持介面無關（interface-agnostic）。
 
 **Definition**  
-一個可部署的使用者介面，讓使用者透過特定管道存取 PAOS 功能。Application 包含一個或多個 Adapter。
+一個可部署的使用者介面，讓使用者透過特定 Channel 存取 PAOS 功能。Application 包含一個或多個 Adapter。
+
+**Anti-Definition — 不是什麼**  
+不是 Domain（業務邏輯層）；  
+不是 Service（共用基礎設施）；  
+不是 Worker（後台執行單元）。  
+→ Application 是面向使用者的前端，它只做「橋接」，不做業務決策。
 
 **Responsibility**  
 提供使用者互動介面；透過 Adapter 與外部系統溝通；將使用者意圖轉換為 PAOS Event。
 
 **Out of Scope**  
-不包含業務邏輯（由 Domain 負責）；不管理 Memory 或 Knowledge（由 Services 負責）。
+不包含業務邏輯；不管理 Memory 或 Knowledge（由 Services 負責）。
 
-**Relationships**  
-Application 包含 Adapter；Application 透過 Event Bus 與 Core 溝通；多個 Application 可以共用同一個 Core。
+**Relationships**
+- **Parent**: Platform
+- **Children**: Adapter（Application 包含一個或多個 Adapter）
+- **Depends On**: Event Bus（與 Core 通訊）, Core（透過事件）
+- **Used By**: 使用者（終端）
 
 **Examples**  
-`telegram-bot`（Telegram 使用者 Bot）、`web-ui`（Web 前端）、`dashboard`（管理介面）、`cli`
+`telegram-bot`、`web-ui`、`dashboard`、`cli`、`api`
+
+**Cross References**  
+- ADR-0001: Repository Strategy（apps/ 目錄命名規範）  
+- ADR-0002: Platform Strategy（介面無關原則）  
+- ADR-0015: Deployment Strategy（Application 的部署形態）
+
+**Decision History**  
+— apps/telegram/ → apps/telegram-bot/（ADR-0001 v2.0，命名更精確，支援未來 telegram-admin、telegram-notify）
 
 ---
 
 ### Collector
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Worker 類型） |
-| **Owner** | Domain（各 Domain 定義自己的 Collector）+ Worker Pool（執行） |
-| **Lifecycle** | 短期（單次爬取）或長期（持續輪詢） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes |
+| **Canonical Name** | Collector |
+| **Layer** | Execution Layer |
+| **Stability** | Stable |
+| **Owner** | Domain（定義）+ Worker Pool（執行）|
+| **Aliases** | Fetcher（非正式）|
+| **Deprecated Names** | Scraper（過於具體，僅指爬蟲）|
+| **Lifecycle** | 短期（單次爬取）或長期（持續輪詢）|
 
 **Why does it exist?**  
-外部資料來源（RSS、API、爬蟲）的存取方式千變萬化，且可能不穩定（逾時、格式改變、頻率限制）。將資料收集隔離為專門的 Worker，確保它的失敗不會影響分析流程。
+外部資料來源的存取方式不穩定（逾時、格式變化、頻率限制）。隔離資料收集確保它的失敗不影響分析流程。
 
 **Definition**  
 一種專門的 Worker，負責從外部資料來源取得原始資料，不做任何解析或分析。
+
+**Anti-Definition — 不是什麼**  
+不是 Parser（負責格式轉換）；  
+不是 Analyzer（負責 AI 推理）；  
+不是 Repository（負責內部資料查詢）。  
+→ Collector 只做一件事：從外部取得原始資料。
 
 **Responsibility**  
 連接外部 API 或爬取網頁；取得原始資料；處理逾時和重試；儲存原始快取；發出 `data.collected` Event。
 
 **Out of Scope**  
-不解析資料格式（Parser 的職責）；不分析資料內容（Analyzer 的職責）。
+不解析資料格式；不分析資料內容。
 
-**Relationships**  
-Collector 在 Workflow Pipeline 的第一步；Collector 的輸出觸發 Parser；Collector 受 Scheduler 排程。
+**Relationships**
+- **Parent**: Worker
+- **Children**: 各種具體 Collector（`TaiwanStockCollector`, `ShopeeCollector`）
+- **Depends On**: External APIs（外部資料來源）, Event Bus（發出完成事件）
+- **Used By**: Workflow Engine（Pipeline 第一步）、Scheduler（觸發定時收集）
 
 **Examples**  
 `TaiwanStockCollector`、`ShopeeListingCollector`、`RssNewsCollector`
+
+**Cross References**  
+- ADR-0011: Runtime Strategy（Collector 在 Worker Layer）  
+- ADR-0013: Storage Strategy（原始資料快取至 SQLite）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Context
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（請求級別） |
-| **Owner** | Memory Service（組裝）；AI Provider（消費） |
+| **Canonical Name** | Context |
+| **Layer** | Memory Layer |
+| **Stability** | Stable |
+| **Owner** | Memory Service（組裝）|
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 單次請求，請求結束即消失 |
-| **Core Concept** | Yes |
-| **Replaceable** | No（所有 AI 呼叫都需要 Context） |
 
 **Why does it exist?**  
-AI 的品質直接取決於它在這次呼叫中「知道什麼」。Context 的存在是為了在 token 預算限制內，為 AI 組裝出「最相關的資訊」。Context 是 Memory + Knowledge + 當前請求的智慧組合。
+AI 的品質取決於它「這次呼叫知道什麼」。Context 在 token 預算限制內，為 AI 組裝最相關的資訊。Context 是 Memory + Knowledge + 當前請求的智慧組合。
 
 **Definition**  
-為一次 AI 呼叫組裝的完整資訊集合，包含 System Prompt、相關 Memory、相關 Knowledge 和當前使用者輸入。
+為一次 AI 呼叫組裝的完整資訊集合：System Prompt + 相關 Memory + 相關 Knowledge + 當前使用者輸入。
+
+**Anti-Definition — 不是什麼**  
+不是 Memory（持久化的記憶儲存）；  
+不是 Knowledge（領域事實資料庫）；  
+不是 Session（使用者會話容器）。  
+→ Context 是一次性的，為單次 AI 呼叫組裝，用完即棄。
 
 **Responsibility**  
-Context Assembly（將 Working Memory + Long-term Memory + Knowledge 按相關性組合）；在 token 限制內最大化相關性。
+Context Assembly（Working Memory 全部 + Long-term Memory 摘要 + Knowledge 相關片段）；在 token 限制內最大化相關性。
 
 **Out of Scope**  
-Context 是讀取的，不寫入（寫入是 Memory Service 的職責）；Context 不跨請求保持。
+Context 只讀取，不寫入（寫入是 Memory Service 的職責）；Context 不跨請求保持。
 
-**Relationships**  
-Context 由 Memory Service 組裝；Context 傳給 AI Provider；Context 包含 Working Memory 的全部 + Long-term Memory 的摘要。
+**Relationships**
+- **Parent**: Memory Layer（概念上屬於記憶系統）
+- **Children**: System Prompt, Working Memory subset, Long-term Memory summary, Knowledge snippets
+- **Depends On**: Memory Service（提供記憶片段）, Knowledge Service（提供知識片段）
+- **Used By**: AI Provider（消費 Context）, Agent（透過 AI Provider）
 
-**Examples**  
-一次對話的 Context 包含：「你是 PAOS 助理」（System Prompt）+ 「上次對話你提到追蹤某股票」（Short-term Memory）+ 「使用者的風險偏好是保守型」（Long-term Memory）+ 「用戶說：今天股市怎麼樣？」（當前輸入）
+**Cross References**  
+- ADR-0006: Memory Strategy（Context Assembly 流程）  
+- ADR-0003: AI Provider Strategy（Context 傳入 Provider）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Core
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Platform Core Layer |
+| **Canonical Name** | Core |
+| **Layer** | Platform Layer |
+| **Stability** | Stable |
 | **Owner** | packages/core/ |
-| **Lifecycle** | 與 Platform 同生命週期（常駐） |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Core 是平台的心臟） |
+| **Aliases** | — |
+| **Deprecated Names** | — |
+| **Lifecycle** | 常駐，與 Platform 同生命週期 |
 
 **Why does it exist?**  
-如果每個 Domain 和 Application 都各自管理排程、通訊、記憶，系統很快就會混亂。Core 的存在是讓所有這些基礎能力集中在一個地方，Domain 和 Application 只需要使用，不需要重新發明。
+若每個 Domain 和 Application 各自管理排程、通訊、記憶，系統很快混亂。Core 讓所有基礎能力集中，Domain 和 Application 只使用，不重新發明。
 
 **Definition**  
 PAOS 的中央基礎設施，包含所有與 Domain 無關、可被所有 Application 和 Domain 共用的能力。
 
+**Anti-Definition — 不是什麼**  
+不是 Application（使用者介面）；  
+不是 Domain（業務邏輯）；  
+不是 Framework（通用工具庫，Core 是 PAOS 專用的）。  
+→ Core 是 PAOS 的心臟，但它不知道「股票是什麼」或「二手商品是什麼」。
+
 **Responsibility**  
-提供 Workflow 執行引擎、Scheduler、Event Bus、Priority Engine、Notification Dispatcher；不包含任何 Domain 特定邏輯。
+Workflow Engine、Scheduler、Event Bus、Priority Engine、Notification Dispatcher；不包含任何 Domain 特定邏輯。
 
 **Out of Scope**  
-Core 不知道「股票是什麼」或「二手商品是什麼」；Core 不直接與 Channel 互動（Application 的職責）。
+Core 不知道任何 Domain 的業務；Core 不直接與 Channel 互動（Application 的職責）。
 
-**Relationships**  
-Core 是所有 Application 和 Domain 的依賴來源；Core 只依賴 Services（Memory、Knowledge、AI Provider）。
+**Relationships**
+- **Parent**: Platform
+- **Children**: Scheduler, Event Bus, Workflow Engine, Priority Engine, Notification Dispatcher
+- **Depends On**: Memory Service, Knowledge Service, AI Provider（透過介面）
+- **Used By**: Application（透過 Event Bus）, Domain（透過 Event Bus）
+
+**Cross References**  
+- ADR-0002: Platform Strategy  
+- ADR-0011: Runtime Strategy（Core Layer 定義）  
+- ADR-0014: Communication Strategy（Core 的通訊邊界）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Dashboard
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Interface Layer |
+| **Canonical Name** | Dashboard |
+| **Layer** | Application Layer |
+| **Stability** | Evolving |
 | **Owner** | apps/dashboard/ |
+| **Aliases** | Admin UI（非正式）|
+| **Deprecated Names** | — |
 | **Lifecycle** | V2 實作 |
-| **Core Concept** | No（是一種 Application） |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-Telegram 適合即時通知，但不適合瀏覽歷史資料、管理設定、查看系統狀態。Dashboard 的存在是提供一個有視覺結構的介面，讓使用者可以主動探索 PAOS 的狀態和資料。
+Telegram 適合即時通知，不適合瀏覽歷史資料、管理設定、查看系統狀態。Dashboard 提供有視覺結構的介面。
 
 **Definition**  
-一個 Web-based Application，提供 PAOS 的狀態視覺化、歷史資料瀏覽、設定管理。
+一個 Web-based Application，提供 PAOS 的狀態視覺化、歷史資料瀏覽與設定管理。
+
+**Anti-Definition — 不是什麼**  
+不是 Core（業務邏輯）；  
+不是 API（後端服務）；  
+不是指令介面（Dashboard 不觸發高風險 Action）。  
+→ Dashboard 是唯讀 + 設定工具。
 
 **Responsibility**  
-顯示 Priority Engine 的輸出（P3 低優先通知）；提供 Knowledge 管理 UI；顯示 Workflow 執行歷史；提供系統設定介面。
+顯示 Priority Engine 輸出（P3 低優先通知）；Knowledge 管理 UI；Workflow 執行歷史；系統設定。
 
-**Out of Scope**  
-Dashboard 是唯讀+設定工具，不是指令介面（不觸發高風險 Action）。
+**Relationships**
+- **Parent**: Application
+- **Children**: —
+- **Depends On**: API Application（查詢資料）, Event Bus（接收狀態更新）
+- **Used By**: 使用者（主動探索介面）
 
-**Relationships**  
-Dashboard 是一種 Application；Dashboard 透過 REST API（api/ Application）查詢資料；P3 通知只在 Dashboard 中顯示。
+**Cross References**  
+- ADR-0007: Notification Strategy（P3 通知只在 Dashboard）  
+- ADR-0015: Deployment Strategy
+
+**Decision History**  
+— 無變更記錄（V2 規劃，尚未實作）
 
 ---
 
 ### Domain
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Business Logic Layer |
-| **Owner** | domains/ 目錄下各自的 module |
-| **Lifecycle** | 與 Platform 同生命週期（可獨立啟用/停用） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（每個 Domain 是獨立的模組） |
+| **Canonical Name** | Domain |
+| **Layer** | Domain Layer |
+| **Stability** | Stable |
+| **Owner** | domains/ 目錄下各 module |
+| **Aliases** | — |
+| **Deprecated Names** | Feature（避免，過於模糊）、Module（避免，代碼組織術語）|
+| **Lifecycle** | 與 Platform 同生命週期，可獨立啟用/停用 |
 
 **Why does it exist?**  
-PAOS 需要追蹤股票、二手商品、AI 新聞等，但「如何分析股票」與「如何分析二手商品」的邏輯完全不同。Domain 的存在是將業務邏輯隔離，確保新增一個 Domain 不需要修改 Core。
+「如何分析股票」與「如何分析二手商品」的邏輯完全不同。Domain 隔離業務邏輯，確保新增 Domain 不需要修改 Core。
 
 **Definition**  
 一個有界的業務領域，包含自己的知識規則、資料來源、Workflow 和通知條件。Domain 是 PAOS 的業務擴充單元。
 
+**Anti-Definition — 不是什麼**  
+不是 Service（共用基礎設施，Domain 使用 Service）；  
+不是 Module（代碼組織概念，Domain 有業務含義）；  
+不是 Microservice（Domain 不需要獨立部署，V1 在同一進程中）。  
+→ Domain 是業務邊界，不是技術邊界。
+
 **Responsibility**  
-定義該領域的 Knowledge Schema、Workflow、Notification Rules 和資料來源；提供 Collector、Parser、Analyzer 的 Domain 特定實作。
+定義該領域的 Knowledge Schema、Workflow、Notification Rules 和資料來源。
 
 **Out of Scope**  
-Domain 不管理基礎設施（由 Core 管理）；Domain 不直接與使用者互動（由 Application 管理）；Domain 不直接呼叫其他 Domain。
+不管理基礎設施；不直接與使用者互動；不直接呼叫其他 Domain。
 
-**Relationships**  
-Domain 透過 Event Bus 與 Core 溝通；Domain 使用 Knowledge Service 和 Memory Service；Domain 定義的 Workflow 由 Core 的 Workflow Engine 執行。
+**Relationships**
+- **Parent**: Platform
+- **Children**: Domain-specific Collector, Parser, Analyzer; Domain Workflows; Domain Knowledge
+- **Depends On**: Core（透過 Event Bus）, Knowledge Service, Memory Service
+- **Used By**: Core（載入 Domain 定義）, Application（透過 Core 存取 Domain 能力）
 
 **Examples**  
-`stocks`（股票追蹤）、`secondhand`（二手商品）、`ai-news`（AI 產業動態）、`legal`（法律知識庫）
+`stocks`、`secondhand`、`ai-news`、`legal`
+
+**Cross References**  
+- ADR-0010: Domain Expansion Strategy（Domain Plugin System）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Event
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Communication Layer |
+| **Canonical Name** | Event |
+| **Layer** | Infrastructure Layer |
+| **Stability** | Stable |
 | **Owner** | Event Bus |
+| **Aliases** | — |
+| **Deprecated Names** | Message（避免，過於通用）、Signal（避免，有其他含義）|
 | **Lifecycle** | 發布後不可變；依設定保留或過期 |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Event 是 PAOS 通訊的基礎） |
 
 **Why does it exist?**  
-系統的各個部分需要知道「發生了什麼事」才能做出反應，但它們不應該緊密耦合。Event 的存在讓發布者和訂閱者完全解耦——發布者不知道有誰在聽，訂閱者不知道是誰發布的。
+系統各部分需要知道「發生了什麼事」才能做出反應，但不應緊密耦合。Event 讓發布者和訂閱者完全解耦。
 
 **Definition**  
-一個不可變的事實記錄，描述系統中已經發生的事情（過去式）。Event 不包含「應該做什麼」，只記錄「發生了什麼」。
+一個不可變的事實記錄，描述系統中已經發生的事情（過去式）。Event 只記錄「發生了什麼」，不包含「應該做什麼」。
+
+**Anti-Definition — 不是什麼**  
+不是 Task（待完成的工作）；  
+不是 Action（主動發起的操作）；  
+不是 Notification（給使用者的訊息）；  
+不是 Command（命令某人做某事）。  
+→ Event 是已發生事實的不可變記錄。
 
 **Responsibility**  
-攜帶足夠的上下文資訊讓訂閱者決定是否需要行動；透過 Event Bus 路由到所有訂閱者。
+攜帶足夠上下文讓訂閱者決定是否行動；透過 Event Bus 路由到所有訂閱者。
 
 **Out of Scope**  
-Event 不包含業務邏輯；Event 不觸發任何特定行動（那是 Trigger 的職責）；Event 不包含使用者個資。
+不包含業務邏輯；不觸發特定行動（那是 Trigger 的職責）。
 
-**Relationships**  
-Event 由任何元件 emit；Event 透過 Event Bus 派發；Trigger 監聽 Event 並決定是否啟動 Workflow。
+**Relationships**
+- **Parent**: Infrastructure（概念層）
+- **Children**: 各種具體 Event（`data.stocks_collected`, `workflow.completed`）
+- **Depends On**: Event Bus（傳遞機制）
+- **Used By**: Trigger（監聽並決定是否啟動 Workflow）、任何需要感知狀態變化的模組
 
-**命名規則**：使用點分隔的 namespace + 過去式動詞（`domain.data_collected`、`workflow.completed`、`task.failed`）
+**命名規則**：`{namespace}.{subject}_{past_tense_verb}`
 
 **Examples**  
 `data.collected`、`knowledge.updated`、`task.completed`、`stock.price_threshold_crossed`
+
+**Cross References**  
+- ADR-0011: Runtime Strategy（Event Bus 設計）  
+- ADR-0014: Communication Strategy（Event 作為主要通訊模式）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Job
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer |
+| **Canonical Name** | Task |
+| **Layer** | Workflow Layer |
+| **Stability** | Evolving |
 | **Owner** | Scheduler |
+| **Aliases** | Job（口語，特指 Scheduled Task）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 與 Task 相同 |
-| **Core Concept** | No（Task 的別名） |
-| **Replaceable** | Yes（用 Task 代替） |
 
 **Why does it exist?**  
-「Job」在技術傳統（cron job、batch job）中有特定含義：一個由時間或排程觸發的後台工作。在 PAOS 中，Job 是 Scheduled Task 的口語化別稱，特別用在 Scheduler 語境中。
+「Job」在技術傳統中有特定含義（cron job）。在 PAOS 中，Job 是 Scheduled Task 的口語化別稱，用在 Scheduler 語境。
 
 **Definition**  
-由 Scheduler 觸發的 Task。除了觸發方式之外，Job 與 Task 完全相同。
+由 Scheduler 觸發的 Task。除觸發方式外，Job 與 Task 完全相同。
 
-**Responsibility**  
-同 Task。
+**Anti-Definition — 不是什麼**  
+Job 本身不是獨立概念；它是「排程觸發的 Task」的口語說法。  
+→ 在程式碼中，統一使用 `Task`。
 
-**Out of Scope**  
-同 Task。
+**Relationships**
+- **Parent**: Task（Job 是 Task 的子類型）
+- **Depends On**: Scheduler（觸發源）
+- **Used By**: Scheduler（管理生命週期）
 
-**Relationships**  
-Job 是 Scheduled Trigger 觸發的 Task；Job 由 Scheduler 管理生命週期。
+**Cross References**  
+- ADR-0012: Execution Model（六種 Trigger 類型）
 
-> ⚠️ **使用規則**：在程式碼和文件中，統一使用 `Task`；只在描述 Scheduler 功能時使用 `Job` 作為口語說明。
+> ⚠️ **使用規則**：程式碼和文件統一使用 `Task`；只在描述 Scheduler 功能時使用 `Job` 作口語說明。
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Knowledge
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Services Layer |
-| **Owner** | Knowledge Service（packages/knowledge/） |
+| **Canonical Name** | Knowledge |
+| **Layer** | Knowledge Layer |
+| **Stability** | Stable |
+| **Owner** | Knowledge Service（packages/knowledge/）|
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 永久，有版本控制 |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Knowledge 是核心資料層） |
 
 **Why does it exist?**  
-AI 的推理品質取決於它知道什麼。PAOS 需要一個地方存放「相對穩定的領域事實」——不是對話記憶，而是「低於 $50 的二手書通常不值得購買」這種規則。Knowledge 讓這些規則可被版本控制、審核和重用。
+AI 的推理品質取決於它知道什麼。PAOS 需要一個地方存放「相對穩定的領域事實」——可被版本控制、審核和重用的規則，而不是對話記憶。
 
 **Definition**  
 結構化的、領域特定的、相對穩定的資訊，可被多個 Workflow 和 Agent 引用。Knowledge 需要版本控制和人工審核。
 
+**Anti-Definition — 不是什麼**  
+不是 Memory（個人的、時間敏感的上下文）；  
+不是 Database（泛指儲存媒介）；  
+不是 Cache（暫時性資料）。  
+→ Knowledge 是領域的、經過審核的、相對穩定的事實。
+
 **Responsibility**  
-儲存和管理 Domain 知識；提供語意查詢（Embedding 搜尋）；管理知識的審核管線（AI 提議 → 人工確認）；版本控制所有變更。
+儲存和管理 Domain 知識；提供語意查詢（Embedding 搜尋）；管理審核管線（AI 提議 → 人工確認）；版本控制所有變更。
 
 **Out of Scope**  
-Knowledge 不儲存對話記憶（那是 Memory 的職責）；Knowledge 不儲存系統狀態（那是 Task Queue 的職責）。
+不儲存對話記憶（Memory 的職責）；不儲存系統狀態（Task Queue 的職責）。
 
-**Relationships**  
-Knowledge 由 Domain 定義 Schema；Knowledge 由 Agent 查詢；Knowledge 的更新需要通過 Validation 和人工確認（ADR-0009）。
+**Relationships**
+- **Parent**: Knowledge Layer
+- **Children**: KnowledgeItem（具體知識條目）、各 Domain 的知識規則
+- **Depends On**: SQLite + sqlite-vss（儲存後端）, Validator（審核新知識）
+- **Used By**: Agent（查詢）, Analyzer（推理時引用）, Context Assembly
 
-**與 Memory 的區別**：
-- Memory = 個人的、時間敏感的、可能衰減（「你上週說想追蹤 A 股票」）
-- Knowledge = 領域的、相對穩定的、需要審核（「A 類型股票的技術面判斷規則」）
+**與 Memory 的核心區別**：
+- Memory = 個人的、時間敏感的（「你上週說想追蹤 A 股票」）
+- Knowledge = 領域的、相對穩定的（「A 類股票的技術面判斷規則」）
 
 **Examples**  
-二手商品定價規則、股票選股條件、AI 新聞的重要性分類標準
+二手商品定價規則、股票選股條件、AI 新聞重要性分類標準
+
+**Cross References**  
+- ADR-0004: Knowledge Strategy  
+- ADR-0008: Validation Strategy（Knowledge 審核管線）  
+- ADR-0013: Storage Strategy（SQLite + sqlite-vss）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Memory
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Services Layer |
-| **Owner** | Memory Service（packages/memory/） |
-| **Lifecycle** | Working Memory：Session 級；Short-term：7-30 天；Long-term：永久 |
-| **Core Concept** | Yes |
-| **Replaceable** | No（三層架構不可取代，但每層的儲存後端可替換） |
+| **Canonical Name** | Memory |
+| **Layer** | Memory Layer |
+| **Stability** | Stable |
+| **Owner** | Memory Service（packages/memory/）|
+| **Aliases** | — |
+| **Deprecated Names** | — |
+| **Lifecycle** | Working：Session 級；Short-term：7–30 天；Long-term：永久 |
 
 **Why does it exist?**  
-AI 在沒有記憶的情況下，每次對話都是從零開始，無法建立連貫的長期協作關係。Memory 的存在讓 PAOS 能夠記住「你是誰、你喜歡什麼、我們上次談到哪裡」，而不只是「這次你說了什麼」。
+AI 沒有記憶時，每次對話從零開始，無法建立長期協作。Memory 讓 PAOS 記住「你是誰、你喜歡什麼、我們上次談到哪裡」。
 
 **Definition**  
 PAOS 用於保存使用者特定、時間演進的情境資訊的三層系統（Working / Short-term / Long-term）。
@@ -504,526 +695,781 @@ PAOS 用於保存使用者特定、時間演進的情境資訊的三層系統（
 - **Short-term Memory**：最近幾週的對話摘要（SQLite，TTL 7–30 天）
 - **Long-term Memory**：使用者偏好、長期目標（SQLite + 向量索引，永久）
 
+**Anti-Definition — 不是什麼**  
+不是 Knowledge（領域事實，與使用者無關）；  
+不是 Database（泛指儲存，Memory 有衰減機制）；  
+不是 Cache（性能優化，Memory 是業務邏輯的一部分）。  
+→ Memory 是使用者個人的、隨時間演進的狀態保存系統。
+
 **Responsibility**  
-儲存三層記憶；提供 Context Assembly（為每次 AI 呼叫組裝最相關的記憶）；管理 Short-term Memory 的過期。
+儲存三層記憶；提供 Context Assembly；管理 Short-term Memory 的 TTL 過期。
 
 **Out of Scope**  
-不儲存領域知識（那是 Knowledge 的職責）；不儲存 Task 狀態（那是 Task Queue 的職責）。
+不儲存領域知識；不儲存 Task 狀態。
+
+**Relationships**
+- **Parent**: Memory Layer
+- **Children**: Working Memory, Short-term Memory, Long-term Memory
+- **Depends On**: SQLite（Short/Long-term）, sqlite-vss（Long-term 向量搜尋）
+- **Used By**: Context Assembly, AI Provider（間接）
+
+**Cross References**  
+- ADR-0006: Memory Strategy  
+- ADR-0013: Storage Strategy（sqlite-vss 相容性）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Notification
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Core Layer |
+| **Canonical Name** | Notification |
+| **Layer** | Infrastructure Layer |
+| **Stability** | Stable |
 | **Owner** | Notification Dispatcher（Core）|
-| **Lifecycle** | 一次性交付（發送後完成） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（不同管道的 Notification 可以替換） |
+| **Aliases** | Alert（P0/P1 高優先通知的口語）|
+| **Deprecated Names** | Message（避免，Message 是 Telegram 概念）|
+| **Lifecycle** | 一次性交付 |
 
 **Why does it exist?**  
-PAOS 監控了大量資訊，但使用者的注意力是有限的。Notification 的存在是讓系統主動告知使用者「現在有一件重要的事需要你注意」，而不是讓使用者自己去查詢。
+PAOS 監控大量資訊，但使用者注意力有限。Notification 讓系統主動告知「現在有一件重要的事需要你注意」。
 
 **Definition**  
-PAOS 主動向使用者交付的一則訊息，說明系統偵測到一件需要使用者注意的事情。
+PAOS 主動向使用者交付的一則訊息，說明系統偵測到需要使用者注意的事情。
+
+**Anti-Definition — 不是什麼**  
+不是 Event（系統內部事實，使用者看不到）；  
+不是 Action（系統執行的操作）；  
+不是 Report（定期彙整，Notification 是即時的或有排程的）。  
+→ Notification 是從系統到使用者的單向告知。
 
 **Responsibility**  
-依優先級（P0–P3）決定交付時機和管道；避免通知疲乏（批次、靜音模式）；記錄所有已發送的通知。
+依優先級（P0–P3）決定交付時機和管道；防止通知疲乏（批次、靜音模式）；記錄所有已發送通知。
 
 **Out of Scope**  
-Notification 不決定「什麼重要」（由 Priority Engine 決定）；Notification 不包含業務分析（由 Analyzer 完成後再通知）。
+不決定「什麼重要」（Priority Engine 決定）；不包含業務分析（Analyzer 完成後才通知）。
+
+**Relationships**
+- **Parent**: Infrastructure Layer
+- **Children**: P0/P1/P2/P3 四種優先級
+- **Depends On**: Priority Engine（重要性評分）, Adapter（交付管道）
+- **Used By**: Reporter（格式化後交付）, Core（Notification Dispatcher）
+
+**Cross References**  
+- ADR-0007: Notification Strategy（四級優先模型）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Parser
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Worker 類型） |
-| **Owner** | Domain（定義 Schema）+ Worker Pool（執行） |
+| **Canonical Name** | Parser |
+| **Layer** | Execution Layer |
+| **Stability** | Stable |
+| **Owner** | Domain（定義 Schema）+ Worker Pool（執行）|
+| **Aliases** | Transformer（非正式）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 短期 Worker，解析完成即退出 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-外部資料來源（API 回應、HTML、RSS）的格式五花八門。Parser 的存在是在 AI 分析之前，先把雜亂的原始資料轉換成結構化的格式。這讓 Analyzer 可以專注於「理解意義」，而不是「解析格式」。
+外部資料格式五花八門（API 回應、HTML、RSS）。Parser 在 AI 分析之前先把原始資料轉成結構化格式，讓 Analyzer 專注「理解意義」而不是「解析格式」。
 
 **Definition**  
 一種專門的 Worker，負責將 Collector 取得的原始資料轉換成符合 Domain Schema 的結構化格式。Parser 不使用 AI。
 
+**Anti-Definition — 不是什麼**  
+不是 Collector（取得原始資料）；  
+不是 Analyzer（AI 推理）；  
+不是 Validator（品質檢查）。  
+→ Parser 是純粹的格式轉換，不涉及語意判斷。
+
 **Responsibility**  
-解析 JSON/HTML/XML/CSV；提取關鍵欄位；丟棄無效資料；輸出符合 Domain Knowledge Schema 的結構化資料。
+解析 JSON/HTML/XML/CSV；提取關鍵欄位；丟棄無效資料；輸出符合 Domain Schema 的結構化資料。
 
-**Out of Scope**  
-不從外部收集資料（Collector 的職責）；不分析資料意義（Analyzer 的職責）；不使用 AI。
+**Relationships**
+- **Parent**: Worker
+- **Children**: 各種具體 Parser（`ShopeeListingParser`, `StockCsvParser`）
+- **Depends On**: Domain Schema（知道目標格式）
+- **Used By**: Workflow Engine（Pipeline 中第二步，Collector 之後）
 
-**Examples**  
-`ShopeeListingParser`（解析蝦皮商品資料）、`StockCsvParser`（解析股票 CSV）
+**Cross References**  
+- ADR-0011: Runtime Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Pipeline
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer |
+| **Canonical Name** | Workflow |
+| **Layer** | Workflow Layer |
+| **Stability** | Evolving |
 | **Owner** | Workflow Engine |
+| **Aliases** | Pipeline（描述線性資料流時使用）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 與 Workflow 相同 |
-| **Core Concept** | No（Workflow 的一種特殊形式） |
-| **Replaceable** | Yes（用 Workflow 代替） |
 
 **Why does it exist?**  
-資料處理常常是線性的：收集 → 解析 → 分析 → 通知。Pipeline 是描述這種線性資料流的術語，強調「前一步驟的輸出是後一步驟的輸入」。
+資料處理常是線性的：收集 → 解析 → 分析 → 通知。Pipeline 是描述這種線性資料流的術語，強調「前一步的輸出是後一步的輸入」。
 
 **Definition**  
-一種線性的 Workflow，其中每個步驟的輸出直接成為下一步驟的輸入。資料像管道中的水一樣單向流動。
+一種線性的 Workflow，每個步驟的輸出直接成為下一步驟的輸入。資料單向流動。
 
-**Relationships**  
-Pipeline 是 Workflow 的特殊形式；Collector → Parser → Analyzer → Reporter 是 PAOS 最典型的 Pipeline。
+**Anti-Definition — 不是什麼**  
+不是獨立的概念，而是 Workflow 的一種特殊形式。  
+→ Pipeline 是口語描述，實作術語是 Workflow。
 
-> ⚠️ **使用規則**：在程式碼和文件中，Pipeline 是口語說明詞；實際實作的術語是 Workflow。
+**Relationships**
+- **Parent**: Workflow（Pipeline 是 Workflow 的特殊形式）
+- **Children**: Collect → Parse → Analyze → Report（典型 Pipeline）
+
+**Cross References**  
+- ADR-0005: Workflow Strategy
+
+> ⚠️ **使用規則**：程式碼和文件統一使用 `Workflow`；`Pipeline` 只在說明線性資料流時作口語說明。
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Platform
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | 整個系統 |
-| **Owner** | 整個 paos/ repo |
-| **Lifecycle** | 永久（只要系統存在） |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Platform 本身就是 PAOS） |
+| **Canonical Name** | Platform |
+| **Layer** | Platform Layer |
+| **Stability** | Stable |
+| **Owner** | paos/ repo（整個系統）|
+| **Aliases** | System（口語）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 永久 |
 
 **Why does it exist?**  
-PAOS 不只是一個應用程式，而是一個可以承載多個 Application 和 Domain 的基礎設施。稱之為 Platform 是為了強調它的「承載」性質——它不直接做任何具體的業務，而是讓業務能夠發生。
+PAOS 不只是一個應用程式，而是可以承載多個 Application 和 Domain 的基礎設施。稱之為 Platform 強調它的「承載」性質——不直接做業務，讓業務能夠發生。
 
 **Definition**  
 PAOS 整體，包含 Core、所有 Application、所有 Domain 和所有基礎設施。Platform 是系統的最高抽象層。
+
+**Anti-Definition — 不是什麼**  
+不是 Application（使用者介面）；  
+不是 Framework（通用工具庫）；  
+不是 Service（單一功能服務）。  
+→ Platform 是承載一切的基礎，本身不執行業務邏輯。
+
+**Relationships**
+- **Parent**: — （最高層）
+- **Children**: Core, Application, Domain, Services
+- **Depends On**: Infrastructure（硬體、OS、執行環境）
+
+**Cross References**  
+- ADR-0002: Platform Strategy  
+- ADR-0015: Deployment Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Plugin
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Extension Layer |
-| **Owner** | 第三方或使用者貢獻 |
-| **Lifecycle** | 獨立於 Core 的生命週期 |
-| **Core Concept** | No |
-| **Replaceable** | Yes |
+| **Canonical Name** | Plugin |
+| **Layer** | Domain Layer |
+| **Stability** | Experimental |
+| **Owner** | 第三方 / 社群貢獻者 |
+| **Aliases** | Extension（口語）、Add-on（口語）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 獨立於 Core |
 
 **Why does it exist?**  
-隨著 PAOS 成熟，可能需要支援第三方貢獻的擴充。Plugin 是泛指所有非 PAOS 官方維護的擴充機制的術語。
+隨 PAOS 成熟，可能需要支援第三方貢獻的擴充。Plugin 是非官方維護的擴充機制術語。
 
 **Definition**  
 由第三方或使用者貢獻的、遵循 PAOS 擴充標準的能力擴充包。
 
-> ⚠️ **使用規則**：在 V1，PAOS 的業務擴充機制叫做 **Domain**，不是 Plugin。「Plugin」這個詞保留給未來的第三方擴充機制。
+**Anti-Definition — 不是什麼**  
+不是 Domain（PAOS 官方維護的業務擴充）；  
+不是 Service（平台核心服務）；  
+不是 Adapter（Channel 橋接）。  
+→ Plugin 是 V3+ 的未來概念，V1 的業務擴充叫 Domain。
+
+> ⚠️ **使用規則**：V1 的業務擴充是 **Domain**，不是 Plugin。Plugin 保留給未來第三方擴充機制。
+
+**Cross References**  
+- ADR-0010: Domain Expansion Strategy
+
+**Decision History**  
+— 無變更記錄（V3+ 規劃術語）
 
 ---
 
 ### Project
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Interface Layer（Claude 特定概念） |
-| **Owner** | Claude Projects（外部系統） |
+| **Canonical Name** | Project |
+| **Layer** | Application Layer |
+| **Stability** | Experimental |
+| **Owner** | Claude Projects（外部系統，Anthropic 維護）|
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 由使用者管理 |
-| **Core Concept** | No |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-Claude Projects 是 Anthropic 提供的功能，讓使用者可以給 Claude 一個持久的 System Prompt 和知識庫。在 PAOS 語境中，Project 代表「透過 Claude Projects 介面與 PAOS 互動的方式」。
+Claude Projects 是 Anthropic 提供的功能，讓使用者可以給 Claude 持久的 System Prompt 和知識庫。在 PAOS 語境中，Project 代表「透過 Claude Projects 介面與 PAOS 互動的方式」。
 
 **Definition**  
 Claude Projects 中的一個容器，包含持久的 System Prompt 和上傳的知識文件。
 
-> ⚠️ **注意**：Project 是 Claude-specific 的概念，不是 PAOS 的通用術語。在 PAOS 架構中，類似的功能由 Domain + Memory 實現。
+**Anti-Definition — 不是什麼**  
+不是 PAOS 的通用術語（這是 Claude 特定概念）；  
+不是 Domain（Domain 是 PAOS 內部業務擴充）；  
+不是 Application（Project 是外部系統的概念）。  
+→ Project 只在描述「透過 Claude Projects 介面存取 PAOS」時使用。
+
+**Relationships**
+- **Parent**: Application Layer（作為 PAOS 的一種互動介面）
+- **Depends On**: Claude Projects API
+
+**Cross References**  
+— 無對應 ADR（外部系統概念）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Provider
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Services Layer（AI Provider Layer） |
+| **Canonical Name** | Provider |
+| **Layer** | Platform Layer |
+| **Stability** | Stable |
 | **Owner** | packages/ai-provider/ |
-| **Lifecycle** | 與 Platform 同生命週期 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（整個 Provider 設計目的就是可替換） |
+| **Aliases** | AI Provider（當特指 AI 服務時）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 常駐，與 Platform 同生命週期 |
 
 **Why does it exist?**  
-PAOS 不想被任何一家 AI 廠商綁定。Provider 的存在讓 PAOS 可以說「我需要 AI 幫我分析這段文字」，而不需要說「我需要 Claude 幫我分析」——具體是 Claude、GPT 還是 Gemini，由設定決定。
+PAOS 不想被任何一家 AI 廠商綁定。Provider 讓系統說「我需要 AI 幫我分析」，而不是「我需要 Claude 幫我分析」——具體是哪個 AI，由設定決定。
 
 **Definition**  
-一個特定外部服務的標準化介面實作，讓 Core 可以使用服務而不知道服務的具體實作。在 PAOS 中最重要的是 AI Provider。
+一個特定外部服務的標準化介面實作，讓 Core 可以使用服務而不知道服務的具體實作。
+
+**Anti-Definition — 不是什麼**  
+不是 Adapter（雙向橋接 Channel，Provider 是單向服務接口）；  
+不是 Service（內部服務，Provider 是外部服務抽象）；  
+不是 SDK（Provider 封裝了 SDK，外界不直接接觸 SDK）。  
+→ Provider 是外部服務的單向接口抽象。
 
 **Responsibility**  
-實作 `AIProvider` 介面的 `complete`、`stream`、`embed`、`toolCall` 等方法；處理特定 API 的認證和錯誤。
+實作 `AIProvider` 介面（`complete`、`stream`、`embed`、`toolCall`）；處理特定 API 的認證和錯誤。
 
 **Out of Scope**  
-Provider 不包含業務邏輯；Provider 不管理 Context（那是 Memory Service 的職責）。
+不包含業務邏輯；不管理 Context（Memory Service 的職責）。
 
-**與 Adapter 的區別**：
-- Adapter：雙向（接收輸入 + 輸出回應），用於 Channel（Telegram）
-- Provider：單向（提供服務），用於 Service（AI）
+**Relationships**
+- **Parent**: Platform Layer
+- **Children**: `ClaudeProvider`, `OpenAIProvider`, `GeminiProvider`, `OllamaProvider`
+- **Depends On**: External AI APIs（Anthropic、OpenAI 等）
+- **Used By**: Agent（間接，透過 Analyzer）, Context Assembly
 
-**Examples**  
-`ClaudeProvider`、`OpenAIProvider`、`GeminiProvider`、`OllamaProvider`
+**Cross References**  
+- ADR-0003: AI Provider Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Reporter
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Worker 類型） |
-| **Owner** | Domain + Notification Service |
+| **Canonical Name** | Reporter |
+| **Layer** | Execution Layer |
+| **Stability** | Evolving |
+| **Owner** | Notification Service |
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 短期 Worker |
-| **Core Concept** | No |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-Analyzer 輸出的是分析結果，但分析結果需要被格式化成使用者可讀的訊息才能交付。Reporter 的存在是分離「分析」和「展示」兩個關注點。
+Analyzer 輸出的是分析結果，但使用者需要可讀訊息。Reporter 分離「分析」和「展示」兩個關注點。
 
 **Definition**  
 一種專門的 Worker，負責將 Analyzer 的輸出格式化成使用者可讀的通知或報告，並交付給 Notification Service。
 
-**Relationships**  
-Reporter 在 Analyzer 之後執行；Reporter 呼叫 Notification Service。
+**Anti-Definition — 不是什麼**  
+不是 Analyzer（推理分析）；  
+不是 Notification（交付機制）；  
+不是 Formatter（太底層，Reporter 有業務邏輯）。  
+→ Reporter 決定「如何把分析結果說給使用者聽」。
 
-> ⚠️ **注意**：在 PAOS V1，Reporter 的功能通常由 Workflow 的最後一個 Step 完成，不需要獨立的 Reporter Worker。Reporter 是較複雜情境下的概念。
+**Relationships**
+- **Parent**: Worker
+- **Depends On**: Notification Service（交付）
+- **Used By**: Workflow Engine（Pipeline 最後一步）
+
+> ⚠️ **V1 說明**：V1 中 Reporter 的功能通常由 Workflow 最後一個 Step 完成，不需要獨立的 Reporter Worker。
+
+**Cross References**  
+- ADR-0007: Notification Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Scheduler
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Core Layer |
-| **Owner** | Core（packages/core/） |
+| **Canonical Name** | Scheduler |
+| **Layer** | Infrastructure Layer |
+| **Stability** | Stable |
+| **Owner** | packages/core/（Scheduler 模組）|
+| **Aliases** | Cron（口語，指底層實作）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 常駐 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（底層 cron 實作可替換） |
 
 **Why does it exist?**  
-很多 PAOS 的工作不是使用者觸發的，而是時間觸發的（每日摘要、定時監控）。Scheduler 的存在讓這些時間規則集中管理，而不是散布在各個 Domain 中。
+很多 PAOS 工作是時間觸發的（每日摘要、定時監控）。Scheduler 讓時間規則集中管理，不散布在各 Domain 中。
 
 **Definition**  
 負責管理和觸發時間性任務（cron job、定時 Workflow）的 Core 元件。
 
+**Anti-Definition — 不是什麼**  
+不是 Event Bus（Scheduler 使用 Event Bus 發出觸發，但它本身不是 Event Bus）；  
+不是 Trigger（Trigger 是規則配置，Scheduler 是執行引擎）；  
+不是 Worker（Scheduler 不執行業務邏輯）。  
+→ Scheduler 是時間的管理者，它在正確的時間發出訊號。
+
 **Responsibility**  
-維護排程規則；在正確的時間發出 Trigger 事件；確保同一排程的同一時間只有一個 instance 執行。
+維護排程規則；在正確時間發出 Trigger 事件；確保同一排程同一時間只有一個 instance 執行。
+
+**Relationships**
+- **Parent**: Core
+- **Children**: 各排程規則（cron expressions）
+- **Depends On**: Event Bus（發出 Trigger）, Task Queue（追蹤 Job 狀態）
+- **Used By**: Domain（定義排程 Workflow）, Collector（定時觸發收集）
+
+**Cross References**  
+- ADR-0011: Runtime Strategy  
+- ADR-0012: Execution Model（Scheduled Trigger）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Service
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Services Layer |
-| **Owner** | packages/ 下各個 package |
+| **Canonical Name** | Service |
+| **Layer** | Platform Layer |
+| **Stability** | Evolving |
+| **Owner** | packages/ 下各 package |
+| **Aliases** | — |
+| **Deprecated Names** | Manager（反模式，避免使用）|
 | **Lifecycle** | 常駐 |
-| **Core Concept** | No（通用術語，在 PAOS 中有具體實例） |
-| **Replaceable** | 視具體 Service 而定 |
 
 **Why does it exist?**  
-「Service」是 PAOS 中描述「提供特定能力的長期運行元件」的通用詞。Memory Service、Knowledge Service 等都是 Service 的實例。
+「Service」是描述「提供特定共用能力的長期運行元件」的通用詞。Memory Service、Knowledge Service 等是 Service 的實例。
 
 **Definition**  
-一個長期運行的元件，提供特定的共用能力給 Core、Domain 和 Worker 使用。
+一個長期運行的元件，提供特定共用能力給 Core、Domain 和 Worker 使用。
 
-> ⚠️ **使用規則**：程式碼和文件中，優先使用具體名稱（Memory Service、Knowledge Service），避免只說「Service」。
+**Anti-Definition — 不是什麼**  
+不是 Worker（Worker 執行短期任務，Service 長期提供能力）；  
+不是 Domain（Domain 是業務邊界，Service 是跨業務的基礎設施）；  
+不是 Module（Module 是代碼組織，Service 有運行時含義）。  
+→ Service 是一個持續提供能力的元件，不是一次性執行的。
+
+> ⚠️ **使用規則**：優先使用具體名稱（Memory Service、Knowledge Service），避免只說「Service」。
+
+**Cross References**  
+- ADR-0011: Runtime Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Skill
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Agent 內部） |
+| **Canonical Name** | Skill |
+| **Layer** | Execution Layer |
+| **Stability** | Experimental |
 | **Owner** | Agent |
+| **Aliases** | Capability（非正式）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 與 Agent 相同 |
-| **Core Concept** | No |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-某些 Agent 的工作模式是重複的（例如「搜尋資料 → 閱讀頁面 → 摘要」）。Skill 是這種可重複使用的 Agent 行為模式的術語。
+某些 Agent 的工作模式是可重複的（「搜尋 → 閱讀 → 摘要」）。Skill 是這種可重複使用的 Agent 行為模式的術語。
 
 **Definition**  
-一個由多個 Tool 組合而成的可重用 Agent 行為模式。
+由多個 Tool 組合而成的可重用 Agent 行為模式。
 
-**Relationships**  
-Skill 由多個 Tool 組成；Skill 是 Agent 使用的能力組合。
+**Anti-Definition — 不是什麼**  
+不是 Tool（單一能力函數）；  
+不是 Workflow（平台層的業務流程）；  
+不是 Agent（執行主體，Skill 是 Agent 使用的能力組合）。  
+→ Skill 是「Tool 的組合配方」，Tool 是「原料」，Skill 是「食譜」。
 
-**與 Tool 的區別**：
-- Tool = 單一能力（`web_search`）
-- Skill = 組合的行為模式（`research` = search + read + summarize）
+**Relationships**
+- **Parent**: Agent
+- **Children**: Tool combinations
+- **Depends On**: Tool（Skill 由多個 Tool 組成）
 
-> ⚠️ **使用規則**：在 PAOS V1，Skill 這個詞主要在 Agent 的 Prompt 設計中使用，不是程式碼的一等公民。
+**Cross References**  
+— 無對應 ADR（V1 設計概念，尚未正式化）
+
+> ⚠️ **使用規則**：V1 中 Skill 主要在 Agent 的 Prompt 設計中使用，不是程式碼的一等公民。
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Task
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer |
+| **Canonical Name** | Task |
+| **Layer** | Infrastructure Layer |
+| **Stability** | Stable |
 | **Owner** | Task Queue（ADR-0013）|
+| **Aliases** | Job（特指排程觸發的 Task）|
+| **Deprecated Names** | — |
 | **Lifecycle** | Created → Queued → Running → Completed / Failed |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Task 是執行的基本單元） |
 
 **Why does it exist?**  
-系統需要一個清晰的「工作單元」概念——它是可追蹤的、可重試的、有明確輸入輸出的。Task 的存在讓系統可以說「這件事需要被完成」並追蹤它是否真的被完成了。
+系統需要一個清晰的「工作單元」概念——可追蹤、可重試、有明確輸入輸出的工作。Task 讓系統可以說「這件事需要被完成」並追蹤是否真的被完成了。
 
 **Definition**  
-一個具有明確輸入、輸出和完成條件的可執行工作單元。Task 是可以被 Worker 獨立執行的最小工作。
+一個具有明確輸入、輸出和完成條件的可執行工作單元。Task 是 Worker 可以獨立執行的最小工作。
+
+**Anti-Definition — 不是什麼**  
+不是 Event（已發生的事實，無執行狀態）；  
+不是 Workflow（多步驟流程，Task 是單一工作）；  
+不是 Action（原子操作，Task 包含 payload 和生命週期狀態）。  
+→ Task 是待完成的工作單元，有生命週期、可追蹤、可重試。
 
 **Responsibility**  
-攜帶執行所需的 payload；記錄執行狀態；支援重試（冪等設計）。
+攜帶執行所需 payload；記錄執行狀態；支援重試（冪等設計）。
 
 **Out of Scope**  
-Task 不包含「如何執行」的邏輯（那是 Agent/Worker 的職責）。
+不包含「如何執行」的邏輯（Agent/Worker 的職責）。
 
-**Relationships**  
-Task 由 Workflow、Scheduler 或 Trigger 建立；Task 由 Worker 執行；Task 的狀態持久化在 Task Queue（SQLite）。
+**Relationships**
+- **Parent**: Infrastructure Layer
+- **Children**: Task payload, Task result
+- **Depends On**: Task Queue（持久化）, SQLite（儲存）
+- **Used By**: Worker（執行）, Scheduler（建立 Job Task）, Workflow Engine（建立 Workflow Tasks）
+
+**Cross References**  
+- ADR-0012: Execution Model  
+- ADR-0013: Storage Strategy（Task Queue 在 SQLite）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Tool
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer（Agent 層） |
+| **Canonical Name** | Tool |
+| **Layer** | Execution Layer |
+| **Stability** | Stable |
 | **Owner** | AI Provider Layer + Domain |
+| **Aliases** | Function（LLM API 術語，指同一概念）|
+| **Deprecated Names** | — |
 | **Lifecycle** | 與 Agent 呼叫相同 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes |
 
 **Why does it exist?**  
-LLM 本身只能生成文字，但 PAOS 的 Agent 需要能夠真正執行操作（搜尋網頁、查詢知識庫、發送通知）。Tool 的存在是給 AI 結構化的、受控的能力邊界——AI 知道自己能做什麼，系統知道 AI 做了什麼。
+LLM 只能生成文字，但 PAOS 的 Agent 需要真正執行操作（搜尋網頁、查詢知識庫、發送通知）。Tool 給 AI 結構化的、受控的能力邊界——AI 知道自己能做什麼，系統知道 AI 做了什麼。
 
 **Definition**  
 Agent 可以呼叫的一個明確定義的外部能力，有固定的輸入 schema 和輸出 schema。
 
+**Anti-Definition — 不是什麼**  
+不是 Action（Action 是有副作用的操作，Tool 是 Agent 呼叫的能力接口，可能包含 Action）；  
+不是 Skill（Skill 是多個 Tool 的組合模式）；  
+不是 API（API 是外部接口，Tool 是 Agent 的能力邊界定義）。  
+→ Tool 是 Agent 的「手」——它的每個動作都有明確的 schema 和 Audit Log。
+
 **Responsibility**  
-提供 Agent 執行特定操作的能力；每個 Tool 呼叫都有 Audit Log 記錄。
+提供 Agent 執行操作的能力；每次 Tool 呼叫都有 Audit Log 記錄。
+
+**Relationships**
+- **Parent**: Execution Layer
+- **Children**: 各種具體 Tool（`web_search`, `query_knowledge`, `read_memory`）
+- **Depends On**: AI Provider（Tool 在 Agent 呼叫 AI 時定義）, Permission Model（高風險 Tool 需要授權）
+- **Used By**: Agent（呼叫）、Skill（組合多個 Tool）
 
 **Examples**  
-`web_search`（搜尋網頁）、`query_knowledge`（查詢知識庫）、`read_memory`（讀取記憶）、`send_notification`（發送通知）
+`web_search`、`query_knowledge`、`read_memory`、`send_notification`
+
+**Cross References**  
+- ADR-0003: AI Provider Strategy  
+- ADR-0009: Security & Permission Strategy（Tool 呼叫的權限）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Trigger
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer |
+| **Canonical Name** | Trigger |
+| **Layer** | Workflow Layer |
+| **Stability** | Stable |
 | **Owner** | Workflow Engine（解析）+ Scheduler / Event Bus（觸發源）|
-| **Lifecycle** | 瞬間（條件滿足即觸發，不持久） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes |
+| **Aliases** | Hook（避免，有歷史歧義）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 瞬間（條件滿足即觸發，不持久）|
 
 **Why does it exist?**  
-Event 描述「發生了什麼事」，但它不決定「應該做什麼」。Trigger 的存在是連接 Event（事實）和 Workflow（行動）——它是「如果 X 發生，就執行 Y」的橋梁。
+Event 描述「發生了什麼事」，但它不決定「應該做什麼」。Trigger 是連接 Event（事實）和 Workflow（行動）的橋梁——「如果 X 發生，就執行 Y」。
 
 **Definition**  
 一個配置規則，定義「當某個 Event 或條件滿足時，啟動哪個 Workflow」。
 
-**與 Event 的區別**：
+**Anti-Definition — 不是什麼**  
+不是 Event（事實記錄）；  
+不是 Workflow（被觸發的流程）；  
+不是 Scheduler（時間管理）。  
+→ Trigger 是 Event 和 Workflow 之間的規則配置。
+
+**與 Event 的核心區別**：
 - Event = 事實（「股價跌破 100」）
 - Trigger = 規則（「當股價跌破 100 時，執行 price-alert Workflow」）
 
-**Relationships**  
-Trigger 監聽 Event；Trigger 啟動 Workflow；Trigger 定義在 Domain 的 `workflow/*.yaml` 中。
+**Relationships**
+- **Parent**: Workflow Layer
+- **Children**: 各種 Trigger 類型（Scheduled, Event, Manual, Webhook, AI-initiated, API）
+- **Depends On**: Event Bus（監聽 Event）
+- **Used By**: Workflow Engine（接收觸發，啟動 Workflow）
+
+**Cross References**  
+- ADR-0005: Workflow Strategy  
+- ADR-0012: Execution Model（六種 Trigger 類型）
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Validator
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Services Layer |
-| **Owner** | Validation Service（ADR-0008） |
+| **Canonical Name** | Validator |
+| **Layer** | Execution Layer |
+| **Stability** | Stable |
+| **Owner** | Validation Service（ADR-0008）|
+| **Aliases** | — |
+| **Deprecated Names** | — |
 | **Lifecycle** | 短期，驗證完成即結束 |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（驗證策略可替換） |
 
 **Why does it exist?**  
-AI 會產生幻覺和錯誤。Validator 的存在是在 AI 的輸出被用於決策之前，先做品質檢查。沒有 Validator，系統的可靠性會隨著 AI 使用量增加而下降。
+AI 會產生幻覺和錯誤。Validator 在 AI 輸出被用於決策之前先做品質檢查。沒有 Validator，系統可靠性會隨 AI 使用量增加而下降。
 
 **Definition**  
 對 AI 輸出或資料品質進行多層驗證的元件，分為 L1（自動）、L2（交叉驗證）、L3（人工確認）三層（ADR-0008）。
+
+**Anti-Definition — 不是什麼**  
+不是 Parser（格式轉換，無品質判斷）；  
+不是 Analyzer（語意推理）；  
+不是 Filter（Validator 有三層，不是簡單過濾）。  
+→ Validator 是 AI 輸出在被採用前的品質把關系統。
+
+**Responsibility**  
+L1: Schema 驗證 + Confidence 過濾；L2: 交叉驗證 + Multi-provider 確認；L3: 人工確認通知。
+
+**Relationships**
+- **Parent**: Execution Layer / Services Layer
+- **Depends On**: AI Provider（L2 多 Provider 驗證）, Knowledge（規則一致性檢查）
+- **Used By**: Analyzer（分析結果驗證）, Knowledge Service（新知識審核）
+
+**Cross References**  
+- ADR-0008: Validation Strategy
+
+**Decision History**  
+— 無變更記錄
 
 ---
 
 ### Worker
 
-| 欄位 | 內容 |
+| | |
 |---|---|
+| **Canonical Name** | Worker |
 | **Layer** | Execution Layer |
+| **Stability** | Stable |
 | **Owner** | Runtime（ADR-0011）|
-| **Lifecycle** | 短期（完成即退出）或長期（持續輪詢） |
-| **Core Concept** | Yes |
-| **Replaceable** | Yes（V2+ 可替換為分散式 Worker） |
+| **Aliases** | — |
+| **Deprecated Names** | — |
+| **Lifecycle** | 短期（完成即退出）或長期（持續輪詢）|
 
 **Why does it exist?**  
-如果所有任務都在同一個進程中執行，一個長時間的 AI 分析任務就會阻塞所有其他任務（包括 Telegram 的即時回覆）。Worker 的存在是隔離執行——每個 Worker 獨立運行，崩潰不影響其他 Worker 或 Core。
+若所有任務在同一進程執行，一個長時間 AI 分析任務會阻塞所有其他任務（包括 Telegram 即時回覆）。Worker 隔離執行——每個 Worker 獨立運行，崩潰不影響 Core 或其他 Worker。
 
 **Definition**  
 一個獨立的執行單元，負責運行特定類型的 Task 和 Agent，與 Core Process 隔離。
 
+**Anti-Definition — 不是什麼**  
+不是 Agent（AI 推理邏輯，Agent 運行「在」Worker 內）；  
+不是 Service（常駐服務，Worker 是任務型）；  
+不是 Task（工作單元，Worker 執行 Task）。  
+→ Worker 是執行環境容器，Agent 是容器裡的推理大腦。
+
 **Responsibility**  
-從 Task Queue（透過 Event Bus）接收任務；在隔離環境中執行 Agent 或處理邏輯；將結果寫回 Task Queue；在 Event Bus 上 emit 完成事件。
+從 Task Queue 接收任務；在隔離環境執行 Agent 或處理邏輯；將結果寫回 Task Queue；在 Event Bus emit 完成事件。
 
 **Out of Scope**  
-Worker 不包含業務邏輯（業務邏輯在 Agent 和 Domain 中）；Worker 不直接呼叫其他 Worker。
+不包含業務邏輯（在 Agent 和 Domain 中）；不直接呼叫其他 Worker。
 
-**與 Agent 的區別**：
-- Worker = 執行環境（運行的容器）
-- Agent = 執行邏輯（AI 推理的主體）
-- Agent 運行「在」Worker 內
+**Relationships**
+- **Parent**: Runtime Layer
+- **Children**: Collector, Parser, Analyzer, Reporter, Validator（都是 Worker 的具體類型）
+- **Depends On**: Event Bus（接收任務, 發出完成事件）, Task Queue（Task 生命週期）
+- **Used By**: Workflow Engine（派發任務給 Worker）
 
-**Examples**  
-Worker 類型：Collector Worker、Parser Worker、Analyzer Worker、Monitor Worker
+**Cross References**  
+- ADR-0011: Runtime Strategy（Worker Layer 定義）  
+- ADR-0014: Communication Strategy（Worker 間通訊規則）
+
+**Decision History**  
+— 「V2 multi-process」改為「V2 Distributed-capable」（ADR-0011 v2.0）——Worker 可以是同進程、Docker 容器、K8s Pod 或 Serverless Function，不限於多進程。
 
 ---
 
 ### Workflow
 
-| 欄位 | 內容 |
+| | |
 |---|---|
-| **Layer** | Execution Layer |
+| **Canonical Name** | Workflow |
+| **Layer** | Workflow Layer |
+| **Stability** | Stable |
 | **Owner** | Workflow Engine（Core）|
-| **Lifecycle** | 執行期間有生命週期；定義永久存在 |
-| **Core Concept** | Yes |
-| **Replaceable** | No（Workflow 是 PAOS 業務邏輯的主要載體） |
+| **Aliases** | Pipeline（描述線性資料流時）、Process（口語）|
+| **Deprecated Names** | — |
+| **Lifecycle** | 定義永久存在；執行實例有完整生命週期 |
 
 **Why does it exist?**  
-業務目標（「每天給我一份股票摘要」）通常需要多個步驟完成。Workflow 的存在是讓這些多步驟業務流程可被命名、版本控制、重用和觀測。
+業務目標（「每天給我一份股票摘要」）需要多個步驟。Workflow 讓這些多步驟業務流程可被命名、版本控制、重用和觀測。
 
 **Definition**  
-一個命名的、有序的 Task 序列，定義了完成某個業務目標的完整流程。Workflow 的定義以 YAML 儲存（見 ADR-0005）。
+一個命名的、有序的 Task 序列，定義完成某個業務目標的完整流程。Workflow 定義以 YAML 儲存（ADR-0005）。
+
+**Anti-Definition — 不是什麼**  
+不是 Pipeline（Pipeline 是 Workflow 的口語說法，特指線性資料流）；  
+不是 Task（單一工作單元）；  
+不是 Agent（AI 推理主體）；  
+不是 Script（Workflow 是聲明式定義，不是命令式腳本）。  
+→ Workflow 是業務流程的聲明式定義，由 Workflow Engine 執行。
 
 **Responsibility**  
-定義執行步驟的順序和條件；由 Workflow Engine 執行；每個 Workflow 執行都有獨立的追蹤 ID。
+定義執行步驟的順序和條件；由 Workflow Engine 執行；每次執行有獨立追蹤 ID。
 
-**Relationships**  
-Workflow 由 Trigger 啟動（見 ADR-0012）；Workflow 包含多個 Task；Workflow 由 Workflow Engine 執行；Workflow 定義在 Domain 中。
+**Relationships**
+- **Parent**: Domain（Workflow 定義在 Domain 中）
+- **Children**: Task（Workflow 由一系列 Task 組成）、Step（每個 Task 也叫 Step）
+- **Depends On**: Workflow Engine（執行）, Event Bus（步驟間通訊）, Worker（執行每個 Task）
+- **Used By**: Trigger（啟動 Workflow）、Scheduler（定時啟動）
 
----
+**Cross References**  
+- ADR-0005: Workflow Strategy  
+- ADR-0012: Execution Model（Workflow 的觸發方式）
 
-## Naming Convention（命名規範）
-
-### 核心原則
-
-**每個術語都有精確的含義，不能互換使用。**
-
-選擇名稱時的決策流程：
-
-```
-這個東西是什麼？
-│
-├── 它是「執行環境」（承載任務的容器）→ Worker
-├── 它是「AI 推理單元」（使用 Tools 完成目標）→ Agent
-├── 它是「工作單元」（可追蹤、可重試的工作）→ Task
-├── 它是「已發生的事實」（不可變）→ Event
-├── 它是「多步驟業務流程」→ Workflow
-├── 它是「業務領域」（股票、二手商品）→ Domain
-├── 它是「外部系統橋接」（Telegram、GitHub）→ Adapter
-├── 它是「服務介面實作」（Claude、GPT）→ Provider
-├── 它是「使用者介面」（TG Bot、Web）→ Application
-└── 以上都不是 → 再思考是否真的需要新術語
-```
+**Decision History**  
+— 無變更記錄
 
 ---
 
-### Domain-specific 元件的命名規則
+## 快速索引：術語 × Layer
 
-**格式：`{Domain}{Role}`**
-
-| Role | 含義 | 範例 |
-|---|---|---|
-| Collector | 收集外部資料的 Worker | `StockCollector`、`ShopeeCollector` |
-| Parser | 解析原始資料的 Worker | `StockCsvParser`、`ListingParser` |
-| Analyzer | 執行 AI 分析的 Worker | `StockSentimentAnalyzer`、`PriceAnalyzer` |
-| Workflow | 業務流程定義 | `StockDailyWorkflow`、`SecondhandAlertWorkflow` |
-
----
-
-### 禁止的命名模式
-
-| 禁止 | 原因 | 應使用 |
-|---|---|---|
-| `BookAgent` | Agent 是 AI 推理單元，不是業務實體 | `BookAnalyzer`（如果它分析書）|
-| `BookWorker` | Worker 是執行環境，不是業務實體 | `BookCollector`、`BookParser`（用具體 Role）|
-| `BookTask` | Task 是工作單元，不是業務實體 | 用 Workflow 名稱描述，不要給 Task 命名 |
-| `TelegramService` | Service 太模糊 | `TelegramAdapter` |
-| `StockManager` | Manager 是過時的反模式 | `StockCollector`、`StockWorkflow` |
-| `AIHelper` | Helper 沒有架構含義 | 根據具體職責命名 |
-
----
-
-### Event 命名規則
-
-Event 名稱使用**點分隔的 namespace**，動詞用**過去式**：
-
-```
-{namespace}.{subject}_{past_tense_verb}
-
-data.stocks_collected
-data.listing_parsed
-knowledge.rule_updated
-task.analysis_completed
-workflow.daily_digest_started
-user.message_received
-system.worker_crashed
-```
-
----
-
-### Task 命名規則
-
-Task 使用**動詞_名詞**（snake_case）：
-
-```
-collect_stock_prices
-parse_shopee_listing
-analyze_sentiment
-send_daily_summary
-```
-
----
-
-### Workflow 命名規則
-
-Workflow 使用**kebab-case 描述性名稱**（存在 YAML 檔案中）：
-
-```
-daily-digest
-price-alert
-new-listing-scan
-weekly-report
-```
-
----
-
-## 待釐清的邊界
-
-以下邊界仍需要在實作中持續確認，如有歧義請以本文件為準：
-
-| 邊界 | 規則 |
+| Layer | 術語 |
 |---|---|
-| Memory vs Knowledge | 個人的、時間敏感的 → Memory；領域的、相對穩定的 → Knowledge |
-| Agent vs Worker | AI 推理邏輯 → Agent；執行環境 → Worker；Agent 跑在 Worker 裡 |
-| Event vs Task | 已發生的事實 → Event；需要被完成的工作 → Task |
-| Adapter vs Provider | 雙向橋接（Channel）→ Adapter；單向服務（AI）→ Provider |
-| Domain vs Plugin | PAOS 官方業務擴充 → Domain；第三方貢獻 → Plugin（V3+） |
-| Job vs Task | 統一用 Task；Job 只在描述 Scheduler 時用作口語說明 |
-| Pipeline vs Workflow | 統一用 Workflow；Pipeline 只在說明線性資料流時用作口語說明 |
+| **Platform Layer** | Core, Platform, Provider, Service |
+| **Application Layer** | Adapter, Application, Dashboard, Project |
+| **Domain Layer** | Domain, Plugin |
+| **Workflow Layer** | Job, Pipeline, Trigger, Workflow |
+| **Execution Layer** | Action, Agent, Analyzer, Collector, Parser, Reporter, Skill, Tool, Validator, Worker |
+| **Knowledge Layer** | Knowledge |
+| **Memory Layer** | Context, Memory |
+| **Infrastructure Layer** | Event, Notification, Scheduler, Task |
+
+---
+
+## 快速索引：Stability Level
+
+| Stability | 術語 |
+|---|---|
+| **Stable**（核心概念，盡量不改）| Action, Adapter, Agent, Analyzer, Application, Collector, Context, Core, Domain, Event, Knowledge, Memory, Notification, Parser, Platform, Provider, Scheduler, Task, Tool, Trigger, Validator, Worker, Workflow |
+| **Evolving**（仍可能調整）| Dashboard, Job, Pipeline, Reporter, Service |
+| **Experimental**（尚未定案）| Plugin, Project, Skill |
+
+---
+
+## 快速索引：Ownership（每個概念的唯一 Owner）
+
+| 概念 | Owner |
+|---|---|
+| Action | Permission Model / Workflow Engine |
+| Adapter | Application（apps/）|
+| Agent | Worker Pool |
+| Analyzer | Worker Pool |
+| Application | apps/ package |
+| Collector | Worker Pool |
+| Context | Memory Service |
+| Core | packages/core/ |
+| Dashboard | apps/dashboard/ |
+| Domain | domains/ module |
+| Event | Event Bus |
+| Job | Scheduler |
+| Knowledge | Knowledge Service |
+| Memory | Memory Service |
+| Notification | Notification Dispatcher |
+| Parser | Worker Pool |
+| Pipeline | Workflow Engine |
+| Platform | paos/ repo |
+| Plugin | Third-party |
+| Project | Claude Projects（外部）|
+| Provider | packages/ai-provider/ |
+| Reporter | Notification Service |
+| Scheduler | packages/core/ |
+| Service | packages/ |
+| Skill | Agent |
+| Task | Task Queue |
+| Tool | AI Provider Layer + Domain |
+| Trigger | Workflow Engine |
+| Validator | Validation Service |
+| Worker | Runtime |
+| Workflow | Workflow Engine |
 
 ---
 
@@ -1031,4 +1477,5 @@ weekly-report
 
 | 版本 | 日期 | 說明 |
 |---|---|---|
-| 1.0 | 2026-06-27 | 初版，定義 31 個術語 + Concept Map + Naming Convention |
+| 1.0 | 2026-06-27 | 初版，31 個術語 + Concept Map + Naming Convention |
+| 2.0 | 2026-06-27 | 大幅擴充：新增 Anti-Definition、Canonical Name/Aliases/Deprecated Names、Stability Level、Ownership 索引、Parent/Child/Depends On/Used By 關係、Cross References、Decision History；Concept Map 移至 concept-map.md；Naming Convention 移至 naming-convention.md；新增 Single Source of Truth 規則；新增八層 Concept Layer 分類 |

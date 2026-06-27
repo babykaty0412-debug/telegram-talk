@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.3"
+version: "1.4"
 date: 2026-06-27
 ---
 
@@ -18,10 +18,12 @@ date: 2026-06-27
 
 ```
 1. glossary.md                  → 統一術語（先建立共同語言，避免一切誤解）
-2. vision-scope.md              → 理解為什麼這個系統存在
-3. system/documentation-system.md → 理解文件的規則和格式（含 ADR Lifecycle）
-4. architecture/platform-blueprint.md → 理解整體系統架構
-5. decisions/ADR-000*.md        → 理解所有重要決策的來龍去脈
+2. concept-map.md               → 理解概念之間的關係與互動模式
+3. vision-scope.md              → 理解為什麼這個系統存在
+4. architecture-principles.md  → 理解設計哲學與不可違反的規則
+5. system/documentation-system.md → 理解文件的規則和格式（含 ADR Lifecycle）
+6. architecture/platform-blueprint.md → 理解整體系統架構
+7. decisions/ADR-000*.md        → 理解所有重要決策的來龍去脈
 ```
 
 ---
@@ -30,11 +32,14 @@ date: 2026-06-27
 
 ### 通用語言（Ubiquitous Language）
 
-> **所有讀者必讀。** 術語表定義整個系統的共同語言。不讀術語表直接讀其他文件，會產生概念誤解。
+> **所有讀者必讀。** 這四份文件構成 PAOS 的共同語言基礎。任何新文件或代碼必須以此為準。
 
 | 文件 | 說明 | 狀態 |
 |---|---|---|
-| [glossary.md](./glossary.md) | PAOS 架構術語表：31 個核心概念、命名規範、概念地圖 | Accepted v1.0 |
+| [glossary.md](./glossary.md) | 31 個核心術語：Anti-Definition、Canonical Name、Stability、Ownership、Relationships | Accepted v2.0 |
+| [concept-map.md](./concept-map.md) | 平台層次圖、八層架構、全域關係矩陣、關鍵互動模式、概念邊界速查 | Accepted v1.0 |
+| [naming-convention.md](./naming-convention.md) | 命名決策樹、Domain 元件命名、Event/Task/Workflow 命名規則、禁止模式 | Accepted v1.0 |
+| [architecture-principles.md](./architecture-principles.md) | 12 個架構原則（P-01 Glossary First ～ P-12 Graceful Degradation）| Accepted v1.0 |
 
 ---
 
@@ -51,6 +56,7 @@ date: 2026-06-27
 | 文件 | 說明 | 狀態 |
 |---|---|---|
 | [system/documentation-system.md](./system/documentation-system.md) | 文件格式標準、ADR Lifecycle、版本控制規則 | Accepted v1.2 |
+| [decision-log.md](./decision-log.md) | 術語變更記錄、架構轉折、棄用模式、開放決策追蹤 | Accepted v1.0 |
 
 ---
 
@@ -121,4 +127,5 @@ date: 2026-06-27
 
 *最後更新：2026-06-27*  
 *ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
-*Glossary：GLOSS-001 v1.0，31 個核心術語（Accepted）*
+*Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
+*通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*
