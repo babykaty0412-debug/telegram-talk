@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.5"
+version: "1.6"
 date: 2026-06-27
 ---
 
@@ -84,6 +84,18 @@ date: 2026-06-27
 
 ---
 
+### 治理框架（Domain Governance）
+
+> 所有 Domain 在進入實作前必須通過本框架的驗證。Marketplace 的目標是成為第一個 Level 5 Golden Domain。
+
+| 文件 | 說明 | 狀態 |
+|---|---|---|
+| [governance/domain-validation-checklist.md](./governance/domain-validation-checklist.md) | 驗證清單（GOVR-001）：9 個維度、33 個驗證項目，Level 1/2 晉升判定 | Accepted v1.0 |
+| [governance/domain-review-process.md](./governance/domain-review-process.md) | 審查流程（GOVR-002）：Level 1/2 審查步驟、角色分工、例外規則 | Accepted v1.0 |
+| [governance/domain-maturity-model.md](./governance/domain-maturity-model.md) | 成熟度模型（GOVR-003）：Level 0–5 定義、Domain Registry、Golden Domain 列表 | Accepted v1.0 |
+
+---
+
 ### Architecture Decision Records（ADR）
 
 | ADR | 標題 | 狀態 | 版本 |
@@ -146,4 +158,5 @@ date: 2026-06-27
 *ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
 *Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
 *通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*  
-*Domain 文件：1 份（marketplace），模板：1 份（domain-template）*
+*Domain 文件：1 份（marketplace，Level 1 Defined），模板：1 份（domain-template）*  
+*治理框架：3 份（GOVR-001 驗證清單、GOVR-002 審查流程、GOVR-003 成熟度模型）*

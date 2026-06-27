@@ -1,10 +1,11 @@
 ---
-doc_type: architecture
+doc_type: domain
 doc_id: DOMAIN-001
 title: Marketplace Domain
 status: accepted
 version: "1.0"
 date: 2026-06-27
+maturity_level: 1
 related: [GLOSS-001, ADR-0004, ADR-0005, ADR-0007, ADR-0008, ADR-0010, ADR-0011, TMPL-001]
 tags: [domain, marketplace, secondhand, ecommerce, shopee, yahoo-auctions]
 ---

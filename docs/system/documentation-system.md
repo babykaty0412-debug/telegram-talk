@@ -3,7 +3,7 @@ doc_type: system
 doc_id: SYS-001
 title: PAOS Documentation System
 status: accepted
-version: "1.3"
+version: "1.4"
 date: 2026-06-27
 audience: [self, ai, engineer, automation]
 ---
@@ -65,6 +65,13 @@ docs/
 │   └── domains/                ← 各 Domain 設計文件
 │       └── marketplace.md      ← Marketplace Domain（DOMAIN-001）
 │
+├── governance/                 ← Domain 治理框架
+│   ├── domain-validation-checklist.md  ← 驗證清單（GOVR-001）
+│   ├── domain-review-process.md        ← 審查流程（GOVR-002）
+│   ├── domain-maturity-model.md        ← 成熟度模型（GOVR-003）
+│   └── reviews/                        ← 各 Domain 的審查記錄
+│       └── {domain}-v{ver}-level{n}-review.md
+│
 └── guides/                     ← 操作指南（How-to）
     ├── setup.md
     ├── add-new-domain.md
@@ -113,6 +120,7 @@ authors: [user, claude-sonnet-4-6]
 | `adr` | Architecture Decision Record | `docs/decisions/` |
 | `template` | 設計模板（填入式，不直接使用） | `docs/templates/` |
 | `domain` | Domain 設計文件（從 domain-template 產出） | `docs/architecture/domains/` |
+| `governance` | Domain 治理文件（驗證清單、審查流程、成熟度模型）| `docs/governance/` |
 | `architecture` | 架構說明文件 | `docs/architecture/` |
 | `guide` | 操作指南 | `docs/guides/` |
 
@@ -126,6 +134,7 @@ authors: [user, claude-sonnet-4-6]
 | `ADR-` | Architecture Decision Record | `ADR-0001` |
 | `TMPL-` | 設計模板 | `TMPL-001` |
 | `DOMAIN-` | Domain 設計文件 | `DOMAIN-001` |
+| `GOVR-` | 治理文件 | `GOVR-001` |
 | `GUIDE-` | 操作指南 | `GUIDE-001` |
 
 ---
@@ -294,3 +303,4 @@ major.minor
 | 1.1 | 2026-06-27 | 新增第五節 ADR Lifecycle；status 值從 `proposed` 改為 `review`；舊五、六節改為六、七節 |
 | 1.2 | 2026-06-27 | 新增 `glossary` doc_type；新增 doc_id 命名慣例表；glossary 移至 docs/ 根目錄；目錄結構與 AI 讀取順序更新為 Glossary 第一 |
 | 1.3 | 2026-06-27 | 新增 `template` 和 `domain` doc_type；新增 TMPL- 和 DOMAIN- doc_id 前綴；目錄結構加入 templates/ 和 architecture/domains/ |
+| 1.4 | 2026-06-27 | 新增 `governance` doc_type；新增 GOVR- doc_id 前綴；目錄結構加入 governance/ 和 reviews/ 子目錄 |
