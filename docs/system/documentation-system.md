@@ -3,7 +3,7 @@ doc_type: system
 doc_id: SYS-001
 title: PAOS Documentation System
 status: accepted
-version: "1.1"
+version: "1.2"
 date: 2026-06-27
 audience: [self, ai, engineer, automation]
 ---
@@ -41,10 +41,11 @@ PAOS 的文件系統有四個讀者，設計必須同時滿足所有人：
 ```
 docs/
 ├── index.md                    ← 總索引（所有文件的入口）
+├── glossary.md                 ← 架構術語表（第一優先讀，GLOSS-001）
+├── vision-scope.md             ← 願景與範圍（整個平台的北極星）
 │
 ├── system/                     ← 文件系統本身的規範
-│   ├── documentation-system.md ← 本文件
-│   └── glossary.md             ← 全局術語表
+│   └── documentation-system.md ← 本文件（文件格式標準、ADR Lifecycle）
 │
 ├── decisions/                  ← Architecture Decision Records (ADR)
 │   ├── ADR-template.md         ← ADR 模板
@@ -56,12 +57,10 @@ docs/
 │   ├── component-map.md        ← 元件地圖
 │   └── [domain]-architecture.md
 │
-├── guides/                     ← 操作指南（How-to）
-│   ├── setup.md
-│   ├── add-new-domain.md
-│   └── add-new-channel.md
-│
-└── vision-scope.md             ← 願景與範圍（整個平台的北極星）
+└── guides/                     ← 操作指南（How-to）
+    ├── setup.md
+    ├── add-new-domain.md
+    └── add-new-channel.md
 ```
 
 ---
@@ -100,11 +99,22 @@ authors: [user, claude-sonnet-4-6]
 
 | 類型 | 說明 | 位置 |
 |---|---|---|
+| `glossary` | 架構術語表（Ubiquitous Language） | `docs/` 根目錄 |
 | `vision` | 願景與範圍文件 | `docs/` 根目錄 |
-| `system` | 文件系統規範、術語表 | `docs/system/` |
+| `system` | 文件系統規範 | `docs/system/` |
 | `adr` | Architecture Decision Record | `docs/decisions/` |
 | `architecture` | 架構說明文件 | `docs/architecture/` |
 | `guide` | 操作指南 | `docs/guides/` |
+
+### doc_id 命名慣例
+
+| 前綴 | 說明 | 範例 |
+|---|---|---|
+| `GLOSS-` | Glossary（術語表） | `GLOSS-001` |
+| `SYS-` | 文件系統規範 | `SYS-001` |
+| `ARCH-` | 架構文件 | `ARCH-001` |
+| `ADR-` | Architecture Decision Record | `ADR-0001` |
+| `GUIDE-` | 操作指南 | `GUIDE-001` |
 
 ---
 
@@ -249,8 +259,8 @@ major.minor
 
 ```
 1. docs/index.md              ← 總覽，了解整個文件地圖
-2. docs/vision-scope.md       ← 理解為什麼這個系統存在
-3. docs/system/glossary.md    ← 統一術語定義
+2. docs/glossary.md           ← 統一術語定義（先建立共同語言）
+3. docs/vision-scope.md       ← 理解為什麼這個系統存在
 4. docs/architecture/platform-blueprint.md  ← 理解系統結構
 5. docs/decisions/ADR-000*.md ← 理解所有重要決策的來龍去脈
 6. 對應的 guide 或 architecture 文件（視任務而定）
@@ -270,3 +280,4 @@ major.minor
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，建立 PAOS 文件系統規範 |
 | 1.1 | 2026-06-27 | 新增第五節 ADR Lifecycle；status 值從 `proposed` 改為 `review`；舊五、六節改為六、七節 |
+| 1.2 | 2026-06-27 | 新增 `glossary` doc_type；新增 doc_id 命名慣例表；glossary 移至 docs/ 根目錄；目錄結構與 AI 讀取順序更新為 Glossary 第一 |

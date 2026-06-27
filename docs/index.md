@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.2"
+version: "1.3"
 date: 2026-06-27
 ---
 
@@ -17,9 +17,9 @@ date: 2026-06-27
 ## 建議閱讀順序（AI / 新加入者）
 
 ```
-1. vision-scope.md              → 理解為什麼這個系統存在
-2. system/documentation-system.md → 理解文件的規則和格式（含 ADR Lifecycle）
-3. system/glossary.md           → 統一術語（避免誤解）
+1. glossary.md                  → 統一術語（先建立共同語言，避免一切誤解）
+2. vision-scope.md              → 理解為什麼這個系統存在
+3. system/documentation-system.md → 理解文件的規則和格式（含 ADR Lifecycle）
 4. architecture/platform-blueprint.md → 理解整體系統架構
 5. decisions/ADR-000*.md        → 理解所有重要決策的來龍去脈
 ```
@@ -27,6 +27,16 @@ date: 2026-06-27
 ---
 
 ## 文件地圖
+
+### 通用語言（Ubiquitous Language）
+
+> **所有讀者必讀。** 術語表定義整個系統的共同語言。不讀術語表直接讀其他文件，會產生概念誤解。
+
+| 文件 | 說明 | 狀態 |
+|---|---|---|
+| [glossary.md](./glossary.md) | PAOS 架構術語表：31 個核心概念、命名規範、概念地圖 | Accepted v1.0 |
+
+---
 
 ### 願景與範圍
 
@@ -40,8 +50,7 @@ date: 2026-06-27
 
 | 文件 | 說明 | 狀態 |
 |---|---|---|
-| [system/documentation-system.md](./system/documentation-system.md) | 文件格式標準、ADR Lifecycle、版本控制規則 | Accepted v1.1 |
-| system/glossary.md | 全局術語表（待建立） | 待建立 |
+| [system/documentation-system.md](./system/documentation-system.md) | 文件格式標準、ADR Lifecycle、版本控制規則 | Accepted v1.2 |
 
 ---
 
@@ -80,8 +89,7 @@ date: 2026-06-27
 
 | 文件 | 優先級 | 說明 |
 |---|---|---|
-| system/glossary.md | 🔴 高 | 全局術語表（Memory vs Knowledge、Event vs Task 等邊界定義） |
-| architecture/platform-blueprint.md v1.0 | 🔴 高 | 目前為 Draft，待升級為正式版本 |
+| architecture/platform-blueprint.md v1.0 | 🔴 高 | 目前為 Draft v0.9，待升級為正式版本（ADR-0001/0011 已 Accepted） |
 | architecture/component-map.md | 🟡 中 | 詳細的元件地圖與依賴關係（含 Event Bus 拓撲） |
 | guides/setup.md | 🟡 中 | 開發環境設定指南（V1 Windows） |
 | guides/add-new-domain.md | 🟡 中 | 如何新增一個 Domain Module（含 Workflow 和 Notification 規則） |
@@ -112,4 +120,5 @@ date: 2026-06-27
 ---
 
 *最後更新：2026-06-27*  
-*ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*
+*ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
+*Glossary：GLOSS-001 v1.0，31 個核心術語（Accepted）*
