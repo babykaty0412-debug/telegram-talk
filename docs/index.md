@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.4"
+version: "1.5"
 date: 2026-06-27
 ---
 
@@ -68,6 +68,22 @@ date: 2026-06-27
 
 ---
 
+### Domain 設計文件
+
+| 文件 | 說明 | 狀態 |
+|---|---|---|
+| [architecture/domains/marketplace.md](./architecture/domains/marketplace.md) | Marketplace Domain：多平台二手商品監控（蝦皮、Yahoo、露天）| Accepted v1.0 |
+
+---
+
+### 模板（Templates）
+
+| 文件 | 說明 | 狀態 |
+|---|---|---|
+| [templates/domain-template.md](./templates/domain-template.md) | Domain 設計模板：所有 Domain 必須使用此模板，含 16 個必填區塊 | Accepted v1.0 |
+
+---
+
 ### Architecture Decision Records（ADR）
 
 | ADR | 標題 | 狀態 | 版本 |
@@ -96,6 +112,7 @@ date: 2026-06-27
 | 文件 | 優先級 | 說明 |
 |---|---|---|
 | architecture/platform-blueprint.md v1.0 | 🔴 高 | 目前為 Draft v0.9，待升級為正式版本（ADR-0001/0011 已 Accepted） |
+| architecture/domains/stocks.md | 🟡 中 | Stocks Domain 設計（使用 domain-template.md） |
 | architecture/component-map.md | 🟡 中 | 詳細的元件地圖與依賴關係（含 Event Bus 拓撲） |
 | guides/setup.md | 🟡 中 | 開發環境設定指南（V1 Windows） |
 | guides/add-new-domain.md | 🟡 中 | 如何新增一個 Domain Module（含 Workflow 和 Notification 規則） |
@@ -128,4 +145,5 @@ date: 2026-06-27
 *最後更新：2026-06-27*  
 *ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
 *Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
-*通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*
+*通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*  
+*Domain 文件：1 份（marketplace），模板：1 份（domain-template）*

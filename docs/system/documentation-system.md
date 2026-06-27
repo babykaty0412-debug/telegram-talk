@@ -3,7 +3,7 @@ doc_type: system
 doc_id: SYS-001
 title: PAOS Documentation System
 status: accepted
-version: "1.2"
+version: "1.3"
 date: 2026-06-27
 audience: [self, ai, engineer, automation]
 ---
@@ -42,6 +42,10 @@ PAOS 的文件系統有四個讀者，設計必須同時滿足所有人：
 docs/
 ├── index.md                    ← 總索引（所有文件的入口）
 ├── glossary.md                 ← 架構術語表（第一優先讀，GLOSS-001）
+├── concept-map.md              ← 概念關係圖（ARCH-002）
+├── naming-convention.md        ← 命名規範（SYS-002）
+├── architecture-principles.md  ← 架構原則（ARCH-003）
+├── decision-log.md             ← 決策變更記錄（SYS-003）
 ├── vision-scope.md             ← 願景與範圍（整個平台的北極星）
 │
 ├── system/                     ← 文件系統本身的規範
@@ -52,10 +56,14 @@ docs/
 │   ├── ADR-0001-*.md
 │   └── ADR-000N-*.md
 │
+├── templates/                  ← 文件與設計模板
+│   └── domain-template.md      ← Domain 設計模板（TMPL-001，所有 Domain 必用）
+│
 ├── architecture/               ← 系統架構文件
 │   ├── platform-blueprint.md   ← 平台藍圖（高層次）
 │   ├── component-map.md        ← 元件地圖
-│   └── [domain]-architecture.md
+│   └── domains/                ← 各 Domain 設計文件
+│       └── marketplace.md      ← Marketplace Domain（DOMAIN-001）
 │
 └── guides/                     ← 操作指南（How-to）
     ├── setup.md
@@ -103,6 +111,8 @@ authors: [user, claude-sonnet-4-6]
 | `vision` | 願景與範圍文件 | `docs/` 根目錄 |
 | `system` | 文件系統規範 | `docs/system/` |
 | `adr` | Architecture Decision Record | `docs/decisions/` |
+| `template` | 設計模板（填入式，不直接使用） | `docs/templates/` |
+| `domain` | Domain 設計文件（從 domain-template 產出） | `docs/architecture/domains/` |
 | `architecture` | 架構說明文件 | `docs/architecture/` |
 | `guide` | 操作指南 | `docs/guides/` |
 
@@ -114,6 +124,8 @@ authors: [user, claude-sonnet-4-6]
 | `SYS-` | 文件系統規範 | `SYS-001` |
 | `ARCH-` | 架構文件 | `ARCH-001` |
 | `ADR-` | Architecture Decision Record | `ADR-0001` |
+| `TMPL-` | 設計模板 | `TMPL-001` |
+| `DOMAIN-` | Domain 設計文件 | `DOMAIN-001` |
 | `GUIDE-` | 操作指南 | `GUIDE-001` |
 
 ---
@@ -281,3 +293,4 @@ major.minor
 | 1.0 | 2026-06-27 | 初版，建立 PAOS 文件系統規範 |
 | 1.1 | 2026-06-27 | 新增第五節 ADR Lifecycle；status 值從 `proposed` 改為 `review`；舊五、六節改為六、七節 |
 | 1.2 | 2026-06-27 | 新增 `glossary` doc_type；新增 doc_id 命名慣例表；glossary 移至 docs/ 根目錄；目錄結構與 AI 讀取順序更新為 Glossary 第一 |
+| 1.3 | 2026-06-27 | 新增 `template` 和 `domain` doc_type；新增 TMPL- 和 DOMAIN- doc_id 前綴；目錄結構加入 templates/ 和 architecture/domains/ |
