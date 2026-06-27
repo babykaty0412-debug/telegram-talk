@@ -67,6 +67,7 @@ date: 2026-06-27
 | [ADR-0008](./decisions/ADR-0008-validation-strategy.md) | Validation Strategy | Accepted |
 | [ADR-0009](./decisions/ADR-0009-security-permission.md) | Security & Permission Strategy | Accepted |
 | [ADR-0010](./decisions/ADR-0010-domain-expansion.md) | Domain Expansion Strategy | Accepted |
+| [ADR-0011](./decisions/ADR-0011-runtime-strategy.md) | Runtime Strategy | Proposed |
 | [ADR-template](./decisions/ADR-template.md) | ADR 模板 | — |
 
 ---
@@ -76,7 +77,7 @@ date: 2026-06-27
 | 文件 | 優先級 | 說明 |
 |---|---|---|
 | system/glossary.md | 🔴 高 | 全局術語表（Memory vs Knowledge 等邊界定義） |
-| ADR-0011-runtime-strategy.md | 🔴 高 | Runtime Strategy（Event-driven / Always-on / Hybrid） |
+| ADR-0012-data-storage.md | 🔴 高 | 資料儲存策略（OQ-03） |
 | ADR-0012-data-storage.md | 🔴 高 | 資料儲存策略（OQ-03） |
 | architecture/component-map.md | 🟡 中 | 詳細的元件地圖與依賴關係 |
 | guides/add-new-domain.md | 🟡 中 | 如何新增一個 Domain Module |
