@@ -3,7 +3,7 @@ doc_type: system
 doc_id: SYS-001
 title: PAOS Documentation System
 status: accepted
-version: "1.0"
+version: "1.1"
 date: 2026-06-27
 audience: [self, ai, engineer, automation]
 ---
@@ -77,7 +77,7 @@ docs/
 doc_type: vision | system | adr | architecture | guide
 doc_id: 唯一識別碼（如 ADR-0001、SYS-001、ARCH-001）
 title: 文件標題
-status: draft | proposed | accepted | deprecated | superseded
+status: draft | review | accepted | superseded | deprecated
 version: "1.0"
 date: YYYY-MM-DD（最後更新日）
 ---
@@ -130,7 +130,8 @@ ADR-{4位數序號}-{kebab-case-標題}.md
 # ADR-XXXX: 標題
 
 ## 狀態
-[Proposed | Accepted | Deprecated | Superseded by ADR-XXXX]
+
+`Accepted`（自 YYYY-MM-DD）
 
 ## 背景（Context）
 [為什麼需要做這個決定？當前的問題或需求是什麼？]
@@ -163,7 +164,56 @@ ADR-{4位數序號}-{kebab-case-標題}.md
 
 ---
 
-## 五、版本控制規則
+## 五、ADR 生命週期（Lifecycle）
+
+每份 ADR 在其生命週期中有五個狀態。狀態必須在 front matter 的 `status` 欄位與文件內的「狀態」段落同步更新。
+
+### 狀態定義
+
+| 狀態 | 說明 | 可轉換至 |
+|---|---|---|
+| `draft` | 草案：正在起草，尚未準備好討論 | `review` |
+| `review` | 審閱中：開放討論，可能仍有變動 | `accepted`、`deprecated` |
+| `accepted` | 已採用：正式決策，所有實作必須遵循 | `superseded`、`deprecated` |
+| `superseded` | 已取代：被更新的 ADR 取代，連結至新 ADR | — |
+| `deprecated` | 已廢棄：不再建議使用，但未被明確取代 | — |
+
+### 狀態轉換圖
+
+```
+draft ──→ review ──→ accepted ──→ superseded
+                  ↘               ↘
+                   deprecated      deprecated
+```
+
+### 在文件中標記狀態
+
+```markdown
+## 狀態
+
+`Accepted`（自 2026-06-27）
+```
+
+若 ADR 被取代，需加上：
+
+```markdown
+## 狀態
+
+`Superseded`（自 2026-09-01）  
+→ 被 [ADR-0005](./ADR-0005-xxx.md) 取代
+```
+
+### 重要規則
+
+1. 狀態變更必須同時更新：front matter `status` + 文件內「狀態」段落 + Changelog
+2. `superseded` 狀態的 front matter 必須在 `supersedes` 欄位列出取代它的新 ADR ID
+3. `accepted` 的 ADR 在被取代前不可刪除——只能標記為 `superseded`
+4. **ADR 永遠保留在 `decisions/` 目錄，不因狀態而刪除**（歷史必須可追溯）
+5. 新的 ADR 取代舊的 ADR 時，舊 ADR 的文件內容不需要修改，只更新狀態與指向新 ADR 的連結
+
+---
+
+## 六、版本控制規則
 
 ### 文件版本號
 
@@ -193,7 +243,7 @@ major.minor
 
 ---
 
-## 六、AI 讀取指南
+## 七、AI 讀取指南
 
 當 AI（Claude、GPT、Gemini 等）接手這個系統時，建議的閱讀順序：
 
@@ -210,6 +260,7 @@ major.minor
 - 不要猜測任何沒有文件記錄的設計意圖
 - 遇到不確定的決策，查詢對應的 ADR
 - 所有新的架構決策都必須產出 ADR，不能只寫在 code comment
+- 當 ADR 狀態為 `superseded` 時，閱讀取代它的新 ADR，不依舊版本行動
 
 ---
 
@@ -218,3 +269,4 @@ major.minor
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，建立 PAOS 文件系統規範 |
+| 1.1 | 2026-06-27 | 新增第五節 ADR Lifecycle；status 值從 `proposed` 改為 `review`；舊五、六節改為六、七節 |

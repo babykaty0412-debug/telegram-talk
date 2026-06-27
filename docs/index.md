@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.0"
+version: "1.2"
 date: 2026-06-27
 ---
 
@@ -18,7 +18,7 @@ date: 2026-06-27
 
 ```
 1. vision-scope.md              → 理解為什麼這個系統存在
-2. system/documentation-system.md → 理解文件的規則和格式
+2. system/documentation-system.md → 理解文件的規則和格式（含 ADR Lifecycle）
 3. system/glossary.md           → 統一術語（避免誤解）
 4. architecture/platform-blueprint.md → 理解整體系統架構
 5. decisions/ADR-000*.md        → 理解所有重要決策的來龍去脈
@@ -40,7 +40,7 @@ date: 2026-06-27
 
 | 文件 | 說明 | 狀態 |
 |---|---|---|
-| [system/documentation-system.md](./system/documentation-system.md) | 文件格式標準、目錄規範、版本控制規則 | Accepted |
+| [system/documentation-system.md](./system/documentation-system.md) | 文件格式標準、ADR Lifecycle、版本控制規則 | Accepted v1.1 |
 | system/glossary.md | 全局術語表（待建立） | 待建立 |
 
 ---
@@ -55,20 +55,24 @@ date: 2026-06-27
 
 ### Architecture Decision Records（ADR）
 
-| ADR | 標題 | 狀態 |
-|---|---|---|
-| [ADR-0001](./decisions/ADR-0001-repo-strategy.md) | Repository Strategy | Proposed |
-| [ADR-0002](./decisions/ADR-0002-platform-strategy.md) | Platform Strategy | Accepted |
-| [ADR-0003](./decisions/ADR-0003-ai-provider-strategy.md) | AI Provider Strategy | Accepted |
-| [ADR-0004](./decisions/ADR-0004-knowledge-strategy.md) | Knowledge Strategy | Accepted |
-| [ADR-0005](./decisions/ADR-0005-workflow-strategy.md) | Workflow Strategy | Accepted |
-| [ADR-0006](./decisions/ADR-0006-memory-strategy.md) | Memory Strategy | Accepted |
-| [ADR-0007](./decisions/ADR-0007-notification-strategy.md) | Notification Strategy | Accepted |
-| [ADR-0008](./decisions/ADR-0008-validation-strategy.md) | Validation Strategy | Accepted |
-| [ADR-0009](./decisions/ADR-0009-security-permission.md) | Security & Permission Strategy | Accepted |
-| [ADR-0010](./decisions/ADR-0010-domain-expansion.md) | Domain Expansion Strategy | Accepted |
-| [ADR-0011](./decisions/ADR-0011-runtime-strategy.md) | Runtime Strategy | Proposed |
-| [ADR-template](./decisions/ADR-template.md) | ADR 模板 | — |
+| ADR | 標題 | 狀態 | 版本 |
+|---|---|---|---|
+| [ADR-0001](./decisions/ADR-0001-repo-strategy.md) | Repository Strategy | Accepted | 2.0 |
+| [ADR-0002](./decisions/ADR-0002-platform-strategy.md) | Platform Strategy | Accepted | 1.0 |
+| [ADR-0003](./decisions/ADR-0003-ai-provider-strategy.md) | AI Provider Strategy | Accepted | 1.0 |
+| [ADR-0004](./decisions/ADR-0004-knowledge-strategy.md) | Knowledge Strategy | Accepted | 1.0 |
+| [ADR-0005](./decisions/ADR-0005-workflow-strategy.md) | Workflow Strategy | Accepted | 1.0 |
+| [ADR-0006](./decisions/ADR-0006-memory-strategy.md) | Memory Strategy | Accepted | 1.0 |
+| [ADR-0007](./decisions/ADR-0007-notification-strategy.md) | Notification Strategy | Accepted | 1.0 |
+| [ADR-0008](./decisions/ADR-0008-validation-strategy.md) | Validation Strategy | Accepted | 1.0 |
+| [ADR-0009](./decisions/ADR-0009-security-permission.md) | Security & Permission Strategy | Accepted | 1.0 |
+| [ADR-0010](./decisions/ADR-0010-domain-expansion.md) | Domain Expansion Strategy | Accepted | 1.0 |
+| [ADR-0011](./decisions/ADR-0011-runtime-strategy.md) | Runtime Strategy | Accepted | 2.0 |
+| [ADR-0012](./decisions/ADR-0012-execution-model.md) | Execution Model | Accepted | 1.0 |
+| [ADR-0013](./decisions/ADR-0013-storage-strategy.md) | Storage Strategy | Accepted | 1.0 |
+| [ADR-0014](./decisions/ADR-0014-communication-strategy.md) | Communication Strategy | Accepted | 1.0 |
+| [ADR-0015](./decisions/ADR-0015-deployment-strategy.md) | Deployment Strategy | Accepted | 1.0 |
+| [ADR-template](./decisions/ADR-template.md) | ADR 模板 | — | — |
 
 ---
 
@@ -76,26 +80,36 @@ date: 2026-06-27
 
 | 文件 | 優先級 | 說明 |
 |---|---|---|
-| system/glossary.md | 🔴 高 | 全局術語表（Memory vs Knowledge 等邊界定義） |
-| ADR-0012-data-storage.md | 🔴 高 | 資料儲存策略（OQ-03） |
-| ADR-0012-data-storage.md | 🔴 高 | 資料儲存策略（OQ-03） |
-| architecture/component-map.md | 🟡 中 | 詳細的元件地圖與依賴關係 |
-| guides/add-new-domain.md | 🟡 中 | 如何新增一個 Domain Module |
-| guides/setup.md | 🟡 中 | 開發環境設定指南 |
+| system/glossary.md | 🔴 高 | 全局術語表（Memory vs Knowledge、Event vs Task 等邊界定義） |
+| architecture/platform-blueprint.md v1.0 | 🔴 高 | 目前為 Draft，待升級為正式版本 |
+| architecture/component-map.md | 🟡 中 | 詳細的元件地圖與依賴關係（含 Event Bus 拓撲） |
+| guides/setup.md | 🟡 中 | 開發環境設定指南（V1 Windows） |
+| guides/add-new-domain.md | 🟡 中 | 如何新增一個 Domain Module（含 Workflow 和 Notification 規則） |
+| guides/add-new-channel.md | 🟡 低 | 如何新增一個 Channel Adapter |
 
 ---
 
 ## 決策狀態摘要
 
-| 類別 | 已決定 | 待決定 |
+| 類別 | 已決定（ADR） | 重要開放問題 |
 |---|---|---|
-| 平台策略 | D-02 Dev/Arch/Runtime 三層分離 | OQ-01 Repo 策略 |
-| AI Provider | D-03 重度抽象層 | OQ（Runtime 語言） |
-| 知識管理 | D-07 六層資訊架構；ADR-0004 審核管線 | OQ-03 儲存後端 |
-| 工作記憶 | ADR-0006 三層記憶模型 | OQ-04 Priority Engine 判斷依據 |
-| 安全 | D-05/D-06 AI 提議人工確認；禁止自動刪除 | OQ-02 Runtime Strategy |
-| Domain 擴充 | ADR-0010 Domain Plugin System | — |
+| Repo 策略 | Hybrid Monorepo + Split Criteria（ADR-0001 v2.0）| paos 主倉庫建在哪裡？ |
+| 平台策略 | Dev/Arch/Runtime 三層分離（ADR-0002）| Runtime 語言（Node.js vs Bun）|
+| AI Provider | 重度抽象層（ADR-0003）| — |
+| 知識管理 | 三層分類 + 審核管線（ADR-0004）| — |
+| Workflow | 完全模組化 Step（ADR-0005）| — |
+| 記憶管理 | 三層記憶模型（ADR-0006）| sqlite-vss 相容性 |
+| 通知 | 四層優先級（ADR-0007）| — |
+| 驗證 | 三層驗證 L1/L2/L3（ADR-0008）| — |
+| 安全權限 | 四層 P-R/A/W/E 模型（ADR-0009）| — |
+| Domain 擴充 | Domain Plugin System（ADR-0010）| — |
+| Runtime | Hybrid Core + Event Bus + Worker（ADR-0011 v2.0）| — |
+| Execution | 六種 Trigger（ADR-0012）| AI-initiated rate limiting |
+| Storage | SQLite 作為 V1 主後端（ADR-0013）| sqlite-vss Windows 相容性 |
+| Communication | 四種合法模式 + 禁止直接呼叫（ADR-0014）| — |
+| Deployment | D1/D2/D3 三目標 + 12-Factor（ADR-0015）| V2 systemd vs Docker |
 
 ---
 
-*最後更新：2026-06-27*
+*最後更新：2026-06-27*  
+*ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*

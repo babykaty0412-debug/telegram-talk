@@ -2,8 +2,8 @@
 doc_type: adr
 doc_id: ADR-0001
 title: Repository Strategy
-status: proposed
-version: "1.0"
+status: accepted
+version: "2.0"
 date: 2026-06-27
 supersedes: []
 related: [ADR-0002]
@@ -14,17 +14,17 @@ tags: [infra, repo, monorepo]
 
 ## 狀態
 
-`Proposed`（等待確認後改為 Accepted）
+`Accepted`（自 2026-06-27）
 
 ## 背景（Context）
 
 PAOS 是一個平台（Platform），而不是單一功能。它將由以下部分組成：
 - **Platform Core**：AI Provider 抽象、Knowledge、Memory、Workflow、Notification、Priority Engine
-- **Applications / Adapters**：Telegram、Web UI、CLI、Discord、LINE 等
+- **Applications / Adapters**：各類 Bot（Telegram、LINE、Discord）、Web UI、Dashboard、CLI、API Server
 - **Tooling & Docs**：開發工具、架構文件
 
 目前只有 `telegram-talk` 這個 repo，它是一個 Adapter，不是平台本身。  
-我們需要決定：如何組織整個平台的程式碼與文件？
+我們需要決定：如何組織整個平台的程式碼與文件，並支撐 5–10 年的持續擴充？
 
 ---
 
@@ -45,88 +45,93 @@ paos/
 │   ├── notification/
 │   └── priority-engine/
 ├── apps/
-│   ├── telegram/       ← telegram-talk 遷移至此
-│   ├── web/
+│   ├── telegram-bot/
+│   ├── web-ui/
 │   └── cli/
-├── docs/               ← 所有架構文件
+├── docs/
 └── tools/
 ```
 
-**優點**：
-- 單一真實來源（Single Source of Truth）
-- 跨 package 重構簡單，影響立即可見
-- 統一 CI/CD、統一版本控制
-- 早期開發效率高（不需要管理跨 repo 依賴）
-- 文件與程式碼在同一個地方，不會脫節
-
-**缺點**：
-- Repo 隨時間增大
-- 需要工具支援（如 pnpm workspaces、Turborepo）
-- 全部 CI 在同一個 pipeline，某個 app 失敗可能阻斷其他
-
-**風險**：工具選擇（monorepo tooling）本身有學習成本。
+**優點**：單一真實來源、跨 package 重構簡單、統一 CI/CD、文件與程式碼不脫節  
+**缺點**：Repo 隨時間增大；需要 Monorepo 工具支援  
+**風險**：工具選擇本身有學習成本。
 
 ---
 
 ### 選項 B：Multi-repo（多倉庫）
 
-每個 app 和 package 各自一個 repo：
+每個 app 和 package 各自一個 repo。
 
-```
-paos-core/
-paos-ai-provider/
-paos-knowledge/
-paos-telegram/          ← telegram-talk 改名
-paos-web/
-```
-
-**優點**：
-- 每個 repo 職責清晰
-- 各 app 可以獨立 CI/CD、獨立版本
-- 大型團隊下，各 team 可以獨立移動
-
-**缺點**：
-- 跨 repo 的修改非常麻煩（改 API → 改 core → 改所有 app）
-- 文件容易分散，難以維護
-- 依賴管理複雜（版本不同步問題）
-- 對單人或小團隊不友善
-
-**風險**：這個選項的複雜度遠超過目前 PAOS 的規模需求。
+**優點**：各 repo 職責絕對清晰；各 app 可獨立 CI/CD  
+**缺點**：跨 repo 修改非常麻煩；文件分散；依賴版本不同步；對單人不友善  
+**結論**：❌ 這個選項的複雜度遠超過目前 PAOS 的規模需求。
 
 ---
 
-### 選項 C：Hybrid（混合策略）
+### 選項 C：Hybrid（Monorepo 為主，條件性拆出）
 
-Platform Core 在一個主倉庫，各 App 可選擇留在主倉庫或獨立：
+主倉庫採用 Monorepo，只有在符合明確 Split Criteria 時才拆出獨立 repo：
 
 ```
-paos/                   ← 主倉庫（Platform + Apps）
-  packages/core/
-  apps/telegram/
-  docs/
-
-paos-web/               ← 獨立 repo（未來有獨立團隊時才拆出）
+paos/（主倉庫）
+├── packages/         ← 共用 library，不可依賴 apps
+├── apps/             ← 所有可部署應用（多個 Bot 分別放在子目錄）
+├── domains/          ← Domain 模組
+├── docs/             ← 所有架構文件
+└── tools/            ← 開發工具（Windows watchdog 等）
 ```
 
-**優點**：
-- 初期 Monorepo 的效率
-- 有明確規則定義何時該拆出（團隊獨立、技術棧完全不同）
-- 靈活應對未來情況
-
-**缺點**：
-- 需要提前定義「何時拆出」的標準
-- 略微增加架構思維負擔
+**優點**：起步效率等同 Monorepo；有明確的拆出規則；長期最靈活  
+**缺點**：需要嚴格執行 Split Criteria，否則退化為 Multi-repo 的混亂
 
 ---
 
 ## 決策（Decision）
 
-**建議採用選項 C：Hybrid，以 Monorepo 為起點，預留拆分規則。**
+**採用選項 C：Hybrid Monorepo。**
 
-實際上，V1/V2 階段將完全以 Monorepo 運作，只有在以下情況才拆出獨立 repo：
-- 某個 App 有獨立開發團隊
-- 某個 App 的技術棧與其他完全不相容
-- 某個 App 需要完全獨立的 release cycle
+以 Monorepo 為起點，只有在符合以下 Split Criteria 時，才允許拆出獨立 repo。
+
+---
+
+## Split Criteria（拆分條件）
+
+當一個 App 或模組同時符合以下**任一**條件時，才允許拆出為獨立 repo：
+
+| 條件 | 說明 |
+|---|---|
+| ① 可獨立部署 | 不依賴主倉庫的 build 流程就能獨立部署 |
+| ② 獨立 Release Cycle | 有自己的版本號與 release 節奏，不跟隨主倉庫 |
+| ③ 獨立 CI/CD | 需要完全隔離的測試/部署管線 |
+| ④ 獨立 Team | 有獨立的開發團隊負責，與主倉庫 team 不重疊 |
+| ⑤ 不再依賴 Core | 不再 import 任何 `packages/core` 的程式碼 |
+
+**重要規則**：
+- 拆分決策必須以文件記錄（產出新的 ADR），不可靠感覺決定
+- 拆出的 repo 需要在主倉庫的 `docs/index.md` 中登記
+- 拆出後的 repo 必須維護自己的 `README.md` 和文件
+
+---
+
+## Apps 目錄命名規則
+
+`apps/` 目錄下的子目錄名稱遵循以下命名慣例：
+
+```
+apps/
+├── telegram-bot/        ← Telegram 使用者 Bot（主要）
+├── telegram-admin/      ← Telegram 管理員 Bot（未來）
+├── telegram-notify/     ← Telegram 純通知 Bot（未來）
+├── web-ui/              ← Web 前端介面
+├── dashboard/           ← 管理 Dashboard
+├── cli/                 ← 命令列工具
+└── api/                 ← REST API Server（外部整合用）
+```
+
+**命名原則**：
+- 同一個服務（如 Telegram）可能有多個 App，以 `{service}-{role}` 區分
+- 不使用單一名詞（如 `telegram`）——因為未來可能有多個 Telegram Bot
+- `{role}` 用途：`bot`（使用者互動）、`admin`（管理）、`notify`（純通知）
 
 ---
 
@@ -135,7 +140,7 @@ paos-web/               ← 獨立 repo（未來有獨立團隊時才拆出）
 1. **規模適配**：PAOS 目前是一人開發，Monorepo 的效率優勢最大
 2. **架構演進**：Platform Core 與 Apps 在早期高度耦合，Monorepo 讓重構成本最低
 3. **文件一致性**：文件與程式碼在同一個倉庫，AI 接手時不需要跨 repo 查詢
-4. **拆分保留**：Hybrid 的定義明確，不是「永遠不拆」，而是「有理由才拆」
+4. **Split Criteria**：明確化拆分條件，防止「感覺應該拆」造成不必要的分散
 
 ---
 
@@ -144,25 +149,28 @@ paos-web/               ← 獨立 repo（未來有獨立團隊時才拆出）
 ### 正面影響
 - 統一的 `docs/` 是整個平台的知識庫
 - 平台核心變更立即反映到所有 apps
-- CI/CD 只需要維護一套
+- Apps 命名規則支援未來同一服務多個 Bot 的情況
 
 ### 負面影響（需接受的取捨）
 - `telegram-talk` 這個現有 repo 必須決定：遷移 or 成為 archived
-- 新 repo 的命名、位置需要另外決定
+- 主倉庫需要新建（命名為 `paos`）
 
 ### 風險與緩解措施
-- **風險**：Monorepo 工具（pnpm/Turborepo）的學習成本
-- **緩解**：先不引入工具，用最簡單的目錄結構起步，工具可以後加
+
+| 風險 | 緩解措施 |
+|---|---|
+| Monorepo 工具（pnpm/Turborepo）學習成本 | V1 先不引入工具，用最簡單的目錄結構起步，工具按需引入 |
+| Split Criteria 未被遵守、悄悄拆出 repo | 所有拆分必須產出 ADR，沒有 ADR 的拆分視為違反本決策 |
 
 ---
 
 ## 實施原則
 
-1. 主倉庫命名為 `paos`（而不是 `telegram-talk`）
-2. 目錄結構：`packages/`（共用 library）、`apps/`（可部署應用）、`docs/`、`tools/`
-3. `telegram-talk` 目前的功能遷移至 `apps/telegram/`
-4. `packages/core/` 是平台核心，**不得依賴任何 app 的程式碼**
-5. 拆分條件：必須文件化並產出新的 ADR
+1. 主倉庫命名為 `paos`
+2. 目錄結構：`packages/`（共用 library）、`apps/`（可部署應用）、`domains/`（Domain 模組）、`docs/`、`tools/`
+3. `telegram-talk` 現有功能遷移至 `apps/telegram-bot/`
+4. `packages/core/` 是平台核心，**不得依賴任何 app 或 domain 的程式碼**
+5. 任何拆分決策必須先參照 Split Criteria，並產出新的 ADR
 
 ---
 
@@ -170,7 +178,7 @@ paos-web/               ← 獨立 repo（未來有獨立團隊時才拆出）
 
 | # | 問題 | 狀態 |
 |---|---|---|
-| 1 | 新的 `paos` repo 要建在哪個 GitHub account？ | Open |
+| 1 | `paos` 主倉庫要建在哪個 GitHub account？ | Open |
 | 2 | `telegram-talk` 是 archive 還是轉成 redirect？ | Open |
 | 3 | Monorepo 工具：pnpm workspaces、Turborepo、Nx，還是先不用？ | Open（建議：先不用） |
 
@@ -181,3 +189,4 @@ paos-web/               ← 獨立 repo（未來有獨立團隊時才拆出）
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，分析三個策略並提出 Hybrid 建議 |
+| 2.0 | 2026-06-27 | 新增正式 Split Criteria（5 個條件）；Apps 命名規則（telegram-bot 等）；狀態升為 Accepted |

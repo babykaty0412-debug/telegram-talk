@@ -2,19 +2,19 @@
 doc_type: adr
 doc_id: ADR-0011
 title: Runtime Strategy
-status: proposed
-version: "1.0"
+status: accepted
+version: "2.0"
 date: 2026-06-27
 supersedes: []
-related: [ADR-0001, ADR-0002, ADR-0005, ADR-0007]
-tags: [runtime, architecture, process, worker]
+related: [ADR-0001, ADR-0002, ADR-0005, ADR-0007, ADR-0012, ADR-0014]
+tags: [runtime, architecture, process, worker, event-bus]
 ---
 
 # ADR-0011: Runtime Strategy
 
 ## 狀態
 
-`Proposed`（等待確認後改為 Accepted）
+`Accepted`（自 2026-06-27）
 
 ## 背景（Context）
 
@@ -25,6 +25,9 @@ PAOS 的工作負載性質截然不同：
 - **耗時計算型**：複雜的 AI 分析 Workflow 可能需要數分鐘
 
 單一的 Runtime 策略無法同時滿足「低延遲即時響應」與「長時間後台計算」的需求。
+
+> **注意**：Runtime Strategy 定義的是「系統如何運行（Process Architecture）」。  
+> 「任務如何被觸發」是 Execution Model（ADR-0012）的責任；「模組如何通訊」是 Communication Strategy（ADR-0014）的責任。
 
 ---
 
@@ -48,143 +51,184 @@ PAOS 的工作負載性質截然不同：
 所有功能無狀態，被呼叫才執行，執行完即結束。
 
 **優點**：資源佔用低、部署簡單  
-**缺點**：
-- Telegram Polling 根本無法實現（需要常駐進程）
-- 長期監控需要外部 cron，管理複雜度線性增長
-- 每次啟動需要重新載入 Memory，對話連貫性差  
-
-**對 AI Agent 的影響**：差。每次呼叫冷啟動，Context 需要重新組裝，延遲高。  
+**缺點**：Telegram Polling 無法實現；長期監控需外部 cron；Memory 每次需重新載入  
 **結論**：❌ 不適合 PAOS
 
 ---
 
 ### 選項 B：Always-on Monolith（整個系統常駐單一進程）
 
-所有功能（Polling、監控、Workflow 執行、對話處理）在同一個進程中運行。
+所有功能在同一個進程中運行。
 
-**優點**：架構最簡單、Working Memory 可在記憶體中維持  
-**缺點**：
-- 單點故障：一個長時間 Workflow 可以阻塞整個 Event Loop
-- 難以水平擴展（未來 V3 SaaS 需要多 instance）
-- 記憶體用量隨功能增加難以控制  
-
-**對 AI Agent 的影響**：尚可。Session 連貫但多個並行 AI 呼叫時資源競爭明顯。  
+**優點**：架構最簡單；Working Memory 可在記憶體中維持  
+**缺點**：單點故障；長時間 Workflow 阻塞 Event Loop；難以水平擴展  
 **結論**：⚠️ V1 勉強可行，中長期不適合
 
 ---
 
-### 選項 C：Hybrid（常駐核心 + 任務型 Worker）
+### 選項 C：Hybrid（常駐 Core + Event Bus + 任務型 Worker）
 
-```
-┌────────────────────────────────────────────────┐
-│            PAOS Core Process（常駐）             │
-│                                                │
-│  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ Event Loop   │  │  Scheduler           │   │
-│  │ - TG Polling │  │  - 監控任務排程        │   │
-│  │ - Webhook    │  │  - 每日摘要排程        │   │
-│  └──────────────┘  └──────────────────────┘   │
-│                                                │
-│  ┌──────────────────────────────────────────┐  │
-│  │        Session Manager（Working Memory） │  │
-│  └──────────────────────────────────────────┘  │
-│                                                │
-│  ┌──────────────────────────────────────────┐  │
-│  │           Worker Pool Manager            │  │
-│  └──────────┬─────────────────────┬─────────┘  │
-└─────────────│─────────────────────│────────────┘
-              │ 派發任務              │
-    ┌─────────▼──────────┐ ┌────────▼────────────┐
-    │  Workflow Worker   │ │  Monitor Worker      │
-    │  (短期，完成即退出) │ │  (長期，持續輪詢)    │
-    │  - AI 分析         │ │  - 股票價格          │
-    │  - 複雜 Workflow   │ │  - 二手商品          │
-    └────────────────────┘ └─────────────────────┘
-```
+Core Process 常駐，負責輕量調度；Worker 負責耗時任務；所有通訊透過 Event Bus。
 
-**優點**：
-- Core Process 輕量，只做調度和狀態管理，延遲低
-- Worker 崩潰不影響 Core Process（隔離故障）
-- 未來可以把 Worker 升級為真正的分散式 Worker（BullMQ + Redis）
-
-**缺點**：
-- 比 Monolith 複雜，Core 與 Worker 需要通訊機制
-- 需要 Worker 生命週期管理
-
-**對 AI Agent 的影響**：最好。Core 維持對話連貫性，AI 分析 Worker 獨立隔離，互不干擾。  
 **結論**：✅ 最推薦
+
+---
+
+## Runtime Layer Architecture
+
+PAOS 的 Runtime 採用分層架構。每層有明確的職責邊界：
+
+```
+┌──────────────────────────────────────────────────────┐
+│                   Runtime Layer                       │
+│  （系統進程的整體邊界，V1 為單進程，V2+ 可分散）        │
+├──────────────────────────────────────────────────────┤
+│                    Core Layer                         │
+│  常駐。接收外部事件（TG Polling、Webhook）、管理 Session │
+├──────────────────────────────────────────────────────┤
+│                  Scheduler Layer                      │
+│  常駐。管理排程任務（cron）、監控任務週期、任務優先佇列  │
+├──────────────────────────────────────────────────────┤
+│                  Memory Layer                         │
+│  常駐。管理 Working / Short-term / Long-term Memory    │
+│  提供 Context Assembly，不直接暴露給 Worker            │
+├──────────────────────────────────────────────────────┤
+│                 Knowledge Layer                       │
+│  常駐。提供知識查詢介面，管理知識版本與審核管線          │
+├──────────────────────────────────────────────────────┤
+│                   Event Bus                           │
+│  核心通訊樞紐。所有跨層通訊都經過 Event Bus             │
+│  Core / Scheduler 派發任務 → Event Bus → Worker        │
+│  Worker 完成 → Event Bus → Core / Notification        │
+├──────────────────────────────────────────────────────┤
+│                  Worker Layer                         │
+│  短期或長期任務執行。不直接呼叫其他 Worker              │
+├────────────────┬────────────────┬────────────────────┤
+│  Collector     │    Parser      │    Analyzer         │
+│  收集外部資料   │  解析原始資料   │  AI 分析 / 摘要      │
+└────────────────┴────────────────┴────────────────────┘
+```
+
+### 各層職責
+
+| 層次 | 職責 | 常駐？ | 可獨立擴展？ |
+|---|---|---|---|
+| Core | 外部事件接收、Session 管理 | ✅ 是 | — |
+| Scheduler | 排程管理、任務優先佇列 | ✅ 是 | V3+ |
+| Memory | Context Assembly、記憶讀寫 | ✅ 是 | — |
+| Knowledge | 知識查詢、審核管線 | ✅ 是 | — |
+| Event Bus | 跨層通訊、任務路由 | ✅ 是 | V3+ |
+| Collector | 外部資料收集 | 長期 Worker | ✅ |
+| Parser | 原始資料解析 | 短期 Worker | ✅ |
+| Analyzer | AI 分析、摘要 | 短期 Worker | ✅ |
+
+---
+
+## 核心設計原則：Architecture First, Implementation Later
+
+**V1 可以用單進程實作，但所有 Interface 必須按分散式架構設計。**
+
+這意味著：
+
+```
+// ❌ 不要這樣（緊耦合）
+async function run() {
+  await collector.run()   // 直接呼叫，架構無法拆分
+  await parser.run()
+}
+
+// ✅ 要這樣（透過 Event Bus 派發）
+eventBus.dispatch('task.collect', {
+  domain: 'stocks',
+  source: 'api',
+  taskId: 'abc-123'
+})
+
+// Worker 訂閱並處理
+eventBus.on('task.collect', async (payload) => {
+  const data = await collectData(payload)
+  eventBus.emit('task.collected', { taskId: payload.taskId, data })
+})
+```
+
+即使 V1 在同一個進程內跑，`dispatch` 和 `on` 的語意也確保了未來可以將 Event Bus 替換為真正的 Message Queue（BullMQ、Redis Streams），不需要修改業務邏輯。
 
 ---
 
 ## 各工作負載的最佳運行位置
 
-| 工作負載 | 運行位置 | 原因 |
+| 工作負載 | 層次 / 運行位置 | 原因 |
 |---|---|---|
-| Telegram Polling / Webhook | Core（常駐） | 必須持續運行 |
-| 對話 Session 管理 | Core（常駐） | Working Memory 需要跨請求保持 |
-| Notification 推送 | Core（常駐） | 低延遲、輕量 |
-| 監控任務排程器 | Core（常駐） | 調度器只需要發出任務，不執行 |
-| 股票 / 商品監控（輪詢） | Monitor Worker（長期） | 與 Core 隔離，崩潰可重啟 |
-| AI 分析 / 複雜 Workflow | Workflow Worker（短期） | 完成就退出，不佔用 Core 資源 |
-| Dashboard API 請求 | Workflow Worker（短期） | 按需啟動，低流量時不佔資源 |
+| Telegram Polling / Webhook | Core Layer（常駐） | 必須持續運行 |
+| 對話 Session 管理 | Core + Memory Layer（常駐） | Working Memory 需要跨請求保持 |
+| Notification 推送 | Core Layer（常駐） | 低延遲、輕量 |
+| 監控任務排程 | Scheduler Layer（常駐） | 只需發出任務，不執行 |
+| 股票 / 商品資料收集 | Collector Worker（長期） | 與 Core 隔離，崩潰可重啟 |
+| 資料解析 | Parser Worker（短期） | 完成就退出 |
+| AI 分析 / 複雜 Workflow | Analyzer Worker（短期） | 完成就退出，不佔用 Core 資源 |
+| Dashboard API 請求 | 短期 Worker | 按需啟動 |
 
 ---
 
 ## 決策（Decision）
 
-**建議採用選項 C：Hybrid Runtime（常駐 Core + 任務型 Worker）。**
+**採用選項 C：Hybrid Runtime（常駐 Core + Event Bus + 任務型 Worker）。**
 
-V1 實作策略（簡化版）：
-- V1 可以用**同一個進程內的 async 並發**模擬 Hybrid（不需要真正的多進程）
-- 設計上嚴格分離 Core 邏輯與 Worker 邏輯，確保未來可以真正拆分
-- V2 再引入真正的多進程或 Message Queue
+- Core、Scheduler、Memory、Knowledge 層常駐
+- 所有跨層通訊透過 Event Bus
+- Collector、Parser、Analyzer 作為 Worker 執行
+- V1 用單進程 async 實作，但 Interface 按分散式設計
 
 ---
 
 ## 決策依據（Rationale）
 
 1. **Telegram Polling 的硬性需求**：Core 必須常駐，沒有妥協空間
-2. **故障隔離**：長時間 AI Workflow 不應該影響 Telegram 的即時回覆
-3. **五年可擴充**：Hybrid 的 Worker 模式在未來可以直接升級為分散式架構（BullMQ、Temporal），不需要重寫
-4. **V1 漸進實作**：不需要第一天就做完整的多進程，用 async/await 在單進程內先分層
+2. **故障隔離**：Worker 崩潰不影響 Core 的即時回覆能力
+3. **Event Bus 為通訊樞紐**：所有跨層呼叫都有明確的 dispatch/subscribe 語意，V2+ 可以替換為真正的 Message Queue
+4. **Architecture First**：V1 用 async 模擬，但 Interface 設計不妥協——業務邏輯與 Runtime 實作完全解耦
 
 ---
 
 ## 後果（Consequences）
 
 ### 正面影響
-- Core Process 的 Event Loop 不被長時間任務阻塞
-- 任何 Worker 崩潰都可以獨立重啟，不影響 Telegram 服務
-- 架構路徑清晰：V1 單進程 → V2 多進程 → V3 分散式
+- Core 的 Event Loop 不被長時間任務阻塞
+- Worker 崩潰可獨立重啟，不影響 Telegram 服務
+- Event Bus 設計讓未來替換 Runtime 不需要修改業務邏輯
 
 ### 負面影響（需接受的取捨）
 - 比 Monolith 增加一層設計複雜度
-- V1 的「假 Hybrid」（單進程 async）需要嚴格的代碼紀律，確保不違反分層
+- V1 的單進程需要嚴格的代碼紀律，確保不繞過 Event Bus 直接呼叫
 
 ### 風險與緩解措施
 
 | 風險 | 緩解措施 |
 |---|---|
-| V1 單進程模擬 Hybrid，代碼紀律不夠，退化為 Monolith | 用 ADR + Code Review 確保 Core / Worker 分層界線 |
-| Worker 崩潰後任務遺失 | V1 任務持久化到儲存（即使是 SQLite），崩潰後可重跑 |
+| V1 繞過 Event Bus 直接呼叫，退化為 Monolith | ADR + Code Review 確保 dispatch/subscribe 模式 |
+| Worker 崩潰後任務遺失 | 任務持久化到 SQLite，崩潰後可重跑（冪等設計）|
 
 ---
 
-## V1 實作路徑
+## 演進路徑
 
 ```
-V1（單進程 async）
-  Core Module：負責 Telegram Polling、Session 管理、任務派發
-  Worker Module：負責執行 Workflow（async function，在同一進程內）
-  分離邊界：Core 不直接執行 AI 呼叫，只透過 Worker Interface 派發
+V1（單進程 async，Interface 按分散式設計）
+  - 所有層在同一個進程內
+  - Event Bus = 輕量 in-process EventEmitter
+  - 任務持久化到 SQLite
 
-V2（多進程）
-  Core Process：不變
-  Worker Process：用 Node.js worker_threads 或 child_process 真正分離
+V2（依部署需求演進為可分散式執行架構）
+  - 不預設為「多進程」，而是依當時需求選擇：
+    - Docker 容器化（隔離但仍可單機）
+    - Worker Process（worker_threads / child_process）
+    - Serverless（特定 Worker 卸載到 Cloud Functions）
+  - Event Bus 可替換為 BullMQ / Redis Streams，業務邏輯不改
 
-V3（分散式）
-  Message Queue（BullMQ / Redis）替換 Worker Interface
-  Worker 可以水平擴展到多台機器
+V3（Distributed / Cloud-native）
+  - Kubernetes 或 Cloud Run
+  - 多個 Worker instance 水平擴展
+  - Event Bus = 分散式 Message Queue（Kafka / SQS）
 ```
 
 ---
@@ -192,9 +236,9 @@ V3（分散式）
 ## 實施原則
 
 1. Core 模組不得包含任何 AI 呼叫（AI 呼叫只在 Worker 中）
-2. Core 模組的每個任務處理必須在 100ms 內完成（或立即派發給 Worker）
-3. Worker 必須設計為**冪等（idempotent）**：同一任務跑兩次結果相同（支援重試）
-4. 所有 Worker 的執行結果必須持久化，Core 可以查詢任意 Worker 的狀態
+2. 所有跨層呼叫必須透過 `eventBus.dispatch()` / `eventBus.on()`，禁止直接呼叫其他層的函數
+3. Worker 必須設計為**冪等（idempotent）**：同一任務跑兩次結果相同
+4. 所有 Worker 的執行狀態必須持久化，Core 可以查詢任意 Worker 的狀態
 
 ---
 
@@ -202,9 +246,9 @@ V3（分散式）
 
 | # | 問題 | 狀態 |
 |---|---|---|
-| 1 | V1 的 Worker 通訊機制：同進程 async 還是 worker_threads？ | Open（建議：先用 async） |
-| 2 | Monitor Worker 的輪詢間隔如何設定？（全域 vs 每個 Domain 獨立設定） | Open |
-| 3 | Worker 任務的持久化後端：記憶體佇列還是 SQLite？ | Open（建議：SQLite，確保重啟不遺失） |
+| 1 | V1 的 Event Bus 實作：自建 EventEmitter 還是用輕量 library？ | Open（建議：自建 EventEmitter wrapper） |
+| 2 | Monitor Worker 的輪詢間隔：全域設定還是每個 Domain 獨立？ | Open（見 ADR-0010 Domain Strategy） |
+| 3 | Worker 任務的持久化後端 | Open（見 ADR-0013 Storage Strategy） |
 
 ---
 
@@ -213,3 +257,4 @@ V3（分散式）
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，深度分析三個選項並提出 Hybrid 建議 |
+| 2.0 | 2026-06-27 | 新增 Runtime Layer Architecture（7 層）；加入 Event Bus 為通訊樞紐；「Architecture First, Implementation Later」原則；演進路徑改為「V2 Distributed-capable」（移除多進程的寫死假設）；狀態升為 Accepted |

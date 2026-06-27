@@ -14,7 +14,11 @@ tags: []
 
 ## 狀態
 
-`Draft` → `Proposed` → `Accepted` / `Deprecated` / `Superseded by ADR-XXXX`
+`Draft`
+
+生命週期：`draft` → `review` → `accepted` → `superseded` / `deprecated`
+
+> 狀態更新時，同步修改：（1）front matter 的 `status` 欄位；（2）本段落；（3）Changelog。
 
 ## 背景（Context）
 
