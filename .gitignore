@@ -11,3 +11,7 @@
 !telegram-watchdog.ps1
 !telegram-daily-restart.ps1
 !bot-health.ps1
+
+# 放行 PAOS 架構文件
+!docs/
+!docs/**
