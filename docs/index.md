@@ -3,7 +3,7 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.6"
+version: "1.7"
 date: 2026-06-27
 ---
 
@@ -92,7 +92,11 @@ date: 2026-06-27
 |---|---|---|
 | [governance/domain-validation-checklist.md](./governance/domain-validation-checklist.md) | 驗證清單（GOVR-001）：9 個維度、33 個驗證項目，Level 1/2 晉升判定 | Accepted v1.0 |
 | [governance/domain-review-process.md](./governance/domain-review-process.md) | 審查流程（GOVR-002）：Level 1/2 審查步驟、角色分工、例外規則 | Accepted v1.0 |
-| [governance/domain-maturity-model.md](./governance/domain-maturity-model.md) | 成熟度模型（GOVR-003）：Level 0–5 定義、Domain Registry、Golden Domain 列表 | Accepted v1.0 |
+| [governance/domain-maturity-model.md](./governance/domain-maturity-model.md) | 成熟度模型（GOVR-003）：Level 0–5 定義、PV Gate、Domain Registry、Golden Domain 列表 | Accepted v1.1 |
+| [governance/product-validation-framework.md](./governance/product-validation-framework.md) | 產品驗證框架（GOVR-004）：User Stories、Success Criteria、KPI、PV Gate（PV-G1~G8）、Domain PV Spec 模板 | Accepted v1.0 |
+| [governance/benchmark-strategy.md](./governance/benchmark-strategy.md) | Benchmark 策略（GOVR-005）：AI vs 手動基準、Manual Baseline 建立、4 個評估維度、5 個 AI 勝出條件 | Accepted v1.0 |
+| [governance/golden-dataset-specification.md](./governance/golden-dataset-specification.md) | Golden Dataset 規格（GOVR-006）：資料結構、標注流程、品質要求、版本管理 | Accepted v1.0 |
+| [governance/replay-regression-strategy.md](./governance/replay-regression-strategy.md) | Replay & Regression 策略（GOVR-007）：Replay Pipeline、Regression 門檻、Level Acceptance Criteria、根因分析框架 | Accepted v1.0 |
 
 ---
 
@@ -159,4 +163,4 @@ date: 2026-06-27
 *Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
 *通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*  
 *Domain 文件：1 份（marketplace，Level 1 Defined），模板：1 份（domain-template）*  
-*治理框架：3 份（GOVR-001 驗證清單、GOVR-002 審查流程、GOVR-003 成熟度模型）*
+*治理框架：7 份（GOVR-001~003 架構驗證 + GOVR-004~007 產品驗證）*

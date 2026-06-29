@@ -3,9 +3,9 @@ doc_type: governance
 doc_id: GOVR-003
 title: Domain Maturity Model
 status: accepted
-version: "1.0"
+version: "1.1"
 date: 2026-06-27
-related: [GOVR-001, GOVR-002, TMPL-001, ADR-0010]
+related: [GOVR-001, GOVR-002, GOVR-004, GOVR-005, GOVR-006, GOVR-007, TMPL-001, ADR-0010]
 tags: [domain, maturity, quality, governance, golden-domain]
 ---
 
@@ -71,26 +71,48 @@ tags: [domain, maturity, quality, governance, golden-domain]
 - 完整審查記錄存於 `docs/governance/reviews/`
 - Final Approver 批准
 
-**代表意義**：這個 Domain 的設計是**「架構正確的」**——符合 12 個架構原則、能與其他 Domain 共存、可以安全進入實作。
+**代表意義**：這個 Domain 的設計是**「架構正確的」**——符合 12 個架構原則、能與其他 Domain 共存，但尚未證明對使用者有價值。
 
-**允許的事**：開始實作程式碼（進入 Level 3）  
-**不允許的事**：標記為 Production（未經實際運行驗證）
+**允許的事**：完成 Product Validation Gate，申請進入 Level 3  
+**不允許的事**：開始實作程式碼（必須先定義「成功」是什麼）
+
+---
+
+### Product Validation Gate（Level 2 → Level 3 前置，GOVR-004）
+
+> 架構正確 ≠ 產品有價值。在實作之前，必須先定義清楚「什麼叫成功」。
+
+**必須完成的 8 項前置條件**（全部由 GOVR-004 定義）：
+
+| # | 項目 | 輸出文件 |
+|---|---|---|
+| PV-G1 | User Stories（≥ 3 個，含 Acceptance Criteria）| Domain PV Spec |
+| PV-G2 | Success Criteria（≥ 3 項，對應 KPI）| Domain PV Spec |
+| PV-G3 | KPI 與目標值（可量測）| Domain PV Spec |
+| PV-G4 | Manual Baseline 建立（不用 AI 時的現狀）| GOVR-005 Benchmark |
+| PV-G5 | Benchmark 勝出條件（AI 如何「贏過」手動）| GOVR-005 Benchmark |
+| PV-G6 | Golden Dataset 建立（≥ 30 筆，人工標注）| GOVR-006 Dataset |
+| PV-G7 | Regression 衰退門檻設定 | GOVR-007 Regression |
+| PV-G8 | Level 3 Acceptance Criteria（實作後的驗收標準）| Domain PV Spec |
+
+**所有 PV-G1～PV-G8 完成 → Final Approver 批准 → 才能進入 Level 3 實作。**
 
 ---
 
 ### Level 3：Implemented（已實作）
 
-**說明**：Domain 的所有設計元件已完成程式碼實作，且通過測試。
+**說明**：Domain 的所有設計元件已完成程式碼實作，且通過測試與 Product Validation。
 
 **進入條件**：
 - 已達到 Level 2
+- Product Validation Gate（PV-G1～PV-G8）全部完成
 - 所有 Collector / Parser / Analyzer 實作完成
 - 所有 Workflow 可以端對端執行
 - 單元測試通過率 ≥ 80%
 - 至少 1 個整合測試通過
 - 部署至 D1（Windows 開發環境）並成功執行完整 Workflow
 
-**代表意義**：這個 Domain 不只是設計，它**實際上在運行並產出結果**。
+**代表意義**：這個 Domain 不只是設計，它**實際上在運行，且通過了 Product Validation 的 Acceptance Criteria**。
 
 **允許的事**：進入 Level 4 穩定性觀察期  
 **不允許的事**：在累積足夠穩定性數據前標記為 Production
@@ -139,14 +161,15 @@ tags: [domain, maturity, quality, governance, golden-domain]
 
 ## 三、等級速查表
 
-| 等級 | 名稱 | 核心意義 | 可以開始實作？ | 可標記為 Production？ | 可作為 Golden Domain？ |
-|---|---|---|---|---|---|
-| 0 | Draft | 設計進行中 | ❌ | ❌ | ❌ |
-| 1 | Defined | 文件完整 | ❌ | ❌ | ❌ |
-| 2 | Validated | 架構正確 | ✅ | ❌ | ❌ |
-| 3 | Implemented | 程式碼完成 | — | ❌ | ❌ |
-| 4 | Production | 穩定運行 | — | ✅ | ❌ |
-| 5 | Reusable | 可作範本 | — | ✅ | ✅ |
+| 等級 | 名稱 | 核心意義 | 需通過 PV Gate？ | 可開始實作？ | 可標記 Production？ | 可作 Golden Domain？ |
+|---|---|---|---|---|---|---|
+| 0 | Draft | 設計進行中 | ❌ | ❌ | ❌ | ❌ |
+| 1 | Defined | 文件完整 | ❌ | ❌ | ❌ | ❌ |
+| 2 | Validated | 架構正確 | ✅ 必須 | ❌（PV Gate 後才可）| ❌ | ❌ |
+| — | PV Gate | 定義成功標準 | — | — | — | — |
+| 3 | Implemented | 程式碼完成 | — | ✅ | ❌ | ❌ |
+| 4 | Production | 穩定運行 | — | — | ✅ | ❌ |
+| 5 | Reusable | 可作範本 | — | — | ✅ | ✅ |
 
 ---
 
@@ -171,14 +194,27 @@ tags: [domain, maturity, quality, governance, golden-domain]
 Level 0 (Draft)
   ↓ [16 個區塊填寫完畢 → 申請 Level 1 審查]
 Level 1 (Defined)
-  ↓ [通過 GOVR-001 完整 9 維度審查 → 申請 Level 2 批准]
+  ↓ [通過 GOVR-001 完整 9 維度架構審查 → 申請 Level 2 批准]
 Level 2 (Validated)
-  ↓ [完成所有元件實作，測試通過，D1 部署成功]
+  ↓ [完成 Product Validation Gate（GOVR-004/005/006/007）]
+  ┌─────────────────────────────────────────────────────────┐
+  │ Product Validation Gate（PV-G1 ~ PV-G8）                │
+  │  PV-G1: User Stories 定義（≥ 3 個）                    │
+  │  PV-G2: Success Criteria 定義（≥ 3 項）                │
+  │  PV-G3: KPI 與目標值確定                               │
+  │  PV-G4: Manual Baseline 建立（GOVR-005）               │
+  │  PV-G5: Benchmark 勝出條件定義（GOVR-005）             │
+  │  PV-G6: Golden Dataset 建立（≥ 30 筆，GOVR-006）       │
+  │  PV-G7: Regression 門檻設定（GOVR-007）                │
+  │  PV-G8: Level 3 Acceptance Criteria 定義               │
+  └─────────────────────────────────────────────────────────┘
+  ↓ [Final Approver 批准 PV Gate]
 Level 3 (Implemented)
-  ↓ [穩定運行 30 天，成功率 ≥ 95%，有效通知 ≥ 1 次]
+  ↓ [所有元件實作，測試通過，D1 部署成功，通過 Acceptance Criteria]
 Level 4 (Production)
-  ↓ [後繼 Domain 以此為參考，改進回饋到 TMPL-001]
+  ↓ [穩定運行 30 天，成功率 ≥ 95%，有效通知 ≥ 1 次]
 Level 5 (Reusable / Golden Domain)
+  ↓ [後繼 Domain 以此為參考，改進回饋到 TMPL-001]
 ```
 
 ---
@@ -214,16 +250,25 @@ Level 5 (Reusable / Golden Domain)
          [使用 GOVR-001 進行 Level 2 完整 9 維度審查]
          ↓
 Level 2: Validated
-         架構正確，可以安全進入實作
+         架構正確，接著進入 Product Validation Gate
+         ↓
+         [Product Validation Gate（GOVR-004/005/006/007）]
+         [PV-G1~G3: User Stories + Success Criteria + KPI 定義]
+         [PV-G4~G5: 手動瀏覽 2 週建立 Baseline + 設定 Benchmark 勝出條件]
+         [PV-G6:    建立 Golden Dataset（≥ 30 筆，含蝦皮、Yahoo、露天）]
+         [PV-G7~G8: 設定 Regression 門檻 + Level 3 Acceptance Criteria]
+         ↓
+         [Final Approver 批准 PV Gate]
          ↓
          [實作 ShopeeListingCollector + YahooListingCollector + RutenListingCollector]
          [實作 Parsers + MarketplaceValueAnalyzer + MarketplaceRiskAnalyzer]
          [實作 marketplace-scan Workflow，完成 D1 部署]
+         [執行 Full Replay，驗證通過 Level 3 Acceptance Criteria]
          ↓
 Level 3: Implemented
-         所有元件運行，測試通過
+         所有元件運行，Replay 通過 Acceptance Criteria
          ↓
-         [觀察 30 天，確認穩定性]
+         [觀察 30 天，月度 Replay 確認無 Regression]
          ↓
 Level 4: Production
          穩定運行，使用者收到過實際通知
@@ -255,3 +300,4 @@ Level 5: Reusable  ← 第一個 Golden Domain
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版：Level 0–5 定義、Domain Registry、Golden Domain 列表、Marketplace 路徑圖 |
+| 1.1 | 2026-06-27 | 新增 Product Validation Gate（PV-G1~G8）於 Level 2 → Level 3 之間；更新等級速查表和路徑圖 |
