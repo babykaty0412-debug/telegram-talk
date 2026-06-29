@@ -3,8 +3,8 @@ doc_type: governance
 doc_id: GOVR-003
 title: Domain Maturity Model
 status: accepted
-version: "1.1"
-date: 2026-06-27
+version: "1.2"
+date: 2026-06-29
 related: [GOVR-001, GOVR-002, GOVR-004, GOVR-005, GOVR-006, GOVR-007, TMPL-001, ADR-0010]
 tags: [domain, maturity, quality, governance, golden-domain]
 ---
@@ -244,41 +244,17 @@ Level 5 (Reusable / Golden Domain)
 ## 八、Marketplace 的預期進展路徑
 
 ```
-[目前] Level 1: Defined
-         文件完整，等待架構驗證
-         ↓
-         [使用 GOVR-001 進行 Level 2 完整 9 維度審查]
-         ↓
-Level 2: Validated
-         架構正確，接著進入 Product Validation Gate
-         ↓
-         [Product Validation Gate（GOVR-004/005/006/007）]
-         [PV-G1~G3: User Stories + Success Criteria + KPI 定義]
-         [PV-G4~G5: 手動瀏覽 2 週建立 Baseline + 設定 Benchmark 勝出條件]
-         [PV-G6:    建立 Golden Dataset（≥ 30 筆，含蝦皮、Yahoo、露天）]
-         [PV-G7~G8: 設定 Regression 門檻 + Level 3 Acceptance Criteria]
-         ↓
-         [Final Approver 批准 PV Gate]
-         ↓
-         [實作 ShopeeListingCollector + YahooListingCollector + RutenListingCollector]
-         [實作 Parsers + MarketplaceValueAnalyzer + MarketplaceRiskAnalyzer]
-         [實作 marketplace-scan Workflow，完成 D1 部署]
-         [執行 Full Replay，驗證通過 Level 3 Acceptance Criteria]
-         ↓
-Level 3: Implemented
-         所有元件運行，Replay 通過 Acceptance Criteria
-         ↓
-         [觀察 30 天，月度 Replay 確認無 Regression]
-         ↓
-Level 4: Production
-         穩定運行，使用者收到過實際通知
-         ↓
-         [設計 Stocks Domain 時，明確以 Marketplace 為參考]
-         [將 Marketplace 實作中發現的設計問題回饋到 domain-template.md]
-         ↓
-Level 5: Reusable  ← 第一個 Golden Domain
-         Marketplace 的設計決策成為 PAOS Domain 系統的品質基準
+Level 1: Defined      → Level 2 審查（GOVR-001，9 維度）
+Level 2: Validated    → Product Validation Gate（GOVR-004/005/006/007）
+                      → Prototype 階段（5 元件驗證）
+                      → Performance Validation
+Level 3: Implemented  → 30 天生產觀察 + 月度 Replay
+Level 4: Production   → 第二個 Domain 套用驗證
+Level 5: Reusable     ← 第一個 Golden Domain
 ```
+
+> 完整的各階段目標、Entry/Exit Criteria、成功標準與風險清單，  
+> 請參閱 **[governance/product-validation/marketplace-roadmap.md](./product-validation/marketplace-roadmap.md)**（GOVR-PV-MKT-001）。
 
 ---
 
@@ -301,3 +277,4 @@ Level 5: Reusable  ← 第一個 Golden Domain
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版：Level 0–5 定義、Domain Registry、Golden Domain 列表、Marketplace 路徑圖 |
 | 1.1 | 2026-06-27 | 新增 Product Validation Gate（PV-G1~G8）於 Level 2 → Level 3 之間；更新等級速查表和路徑圖 |
+| 1.2 | 2026-06-29 | 精簡第八節路徑圖，完整路徑移至 marketplace-roadmap.md（GOVR-PV-MKT-001）|
