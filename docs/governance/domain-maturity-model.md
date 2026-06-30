@@ -3,7 +3,7 @@ doc_type: governance
 doc_id: GOVR-003
 title: Domain Maturity Model
 status: accepted
-version: "1.2"
+version: "1.3"
 date: 2026-06-29
 related: [GOVR-001, GOVR-002, GOVR-004, GOVR-005, GOVR-006, GOVR-007, TMPL-001, ADR-0010]
 tags: [domain, maturity, quality, governance, golden-domain]
@@ -226,7 +226,7 @@ Level 5 (Reusable / Golden Domain)
 
 | Domain | doc_id | 當前等級 | 狀態名稱 | 最後等級更新 | 備註 |
 |---|---|---|---|---|---|
-| marketplace | DOMAIN-001 | **Level 1** | Defined | 2026-06-27 | 等待 Level 2 審查（GOVR-001 9 維度）|
+| marketplace | DOMAIN-001 | **Level 2** | Validated | 2026-06-29 | 通過 Level 2 審查（REV-MKT-001 v1.1，Major 歸零）；下一步 Product Validation Gate |
 
 ---
 
@@ -278,3 +278,4 @@ Level 5: Reusable     ← 第一個 Golden Domain
 | 1.0 | 2026-06-27 | 初版：Level 0–5 定義、Domain Registry、Golden Domain 列表、Marketplace 路徑圖 |
 | 1.1 | 2026-06-27 | 新增 Product Validation Gate（PV-G1~G8）於 Level 2 → Level 3 之間；更新等級速查表和路徑圖 |
 | 1.2 | 2026-06-29 | 精簡第八節路徑圖，完整路徑移至 marketplace-roadmap.md（GOVR-PV-MKT-001）|
+| 1.3 | 2026-06-29 | Registry 更新：Marketplace 晉升 Level 2（Validated），依 REV-MKT-001 v1.1 |

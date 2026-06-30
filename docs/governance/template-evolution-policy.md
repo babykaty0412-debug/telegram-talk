@@ -121,8 +121,12 @@ TMPL-001 v1.2  (Stable)  ◀── 目標
 | 版本 | 穩定度 | Originator | Validator | 驗證狀態 |
 |---|---|---|---|---|
 | v1.0 | Stable | （初版設計）| — | 基準版本 |
-| v1.1 | **Experimental** | Marketplace（REV-MKT-001）| Stocks（待進行）| 等待第二個 Domain |
+| v1.1 | **Experimental** | Marketplace（REV-MKT-001 v1.1）✅ 已驗證 | Stocks（待進行）| Originator 通過，等待第二個 Domain |
 | v1.2 | （目標 Stable）| Marketplace | Stocks | 未開始 |
+
+> **Originator 驗證結果（2026-06-29）**：Marketplace 已對齊 Template v1.1（DOMAIN-001 v1.1），  
+> 5 個新區塊（§7、§8、§11、§14、§16）全部填入實質內容、無結構性窒礙，**確認無需修改 Template**  
+> （詳見 REV-MKT-001 §7.5）。穩定度維持 Experimental，待 Stocks 完成 Validator 驗證後升級 Stable。
 
 ---
 

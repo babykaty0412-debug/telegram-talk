@@ -3,15 +3,16 @@ doc_type: governance
 doc_id: REV-MKT-001
 title: Marketplace Domain Level 2 Review Report
 status: accepted
-version: "1.0"
+version: "1.1"
 date: 2026-06-29
 domain: marketplace
 domain_doc: docs/architecture/domains/marketplace.md
-domain_version: "1.0"
+domain_version: "1.1"
 target_level: 2
+verdict: pass
 reviewer: claude
 final_approver: user
-related: [DOMAIN-001, GOVR-001, GOVR-002, GOVR-003, TMPL-001, ARCH-003, SYS-002]
+related: [DOMAIN-001, GOVR-001, GOVR-002, GOVR-003, GOVR-008, TMPL-001, ARCH-003, SYS-002]
 ---
 
 # Marketplace Domain — Level 2 Review Report
@@ -499,8 +500,64 @@ Marketplace Domain 是一份架構嚴謹、業務邏輯完整的 Domain 設計�
 
 ---
 
+## 7. Re-Confirmation（v1.1 複審 — Conditional Pass 條件驗收）
+
+> 本節為 Conditional Pass 後的複審。針對 DOMAIN-001 v1.1（對齊 Template v1.1）確認三個 Must Fix 是否完成。  
+> 複審日期：2026-06-29　複審者：claude　Final Approver：user
+
+### 7.1 Must Fix 驗收
+
+| 條件 | 修補項目 | 驗收標準 | 結果 | 證據 |
+|---|---|---|---|---|
+| **MF-01** | Audit Log 規格 | 列出須審計的操作 + 最低欄位 | ✅ 完成 | §14 Auditable Operations：5 類操作（external_call / notification / knowledge_write ×2 / status_change），Core 提供標準欄位 |
+| **MF-02** | 4 個元件 Unit Tests | 各 ≥ 3 個測試案例 | ✅ 完成 | §19：YahooAuctionParser（U09-U11）、RutenListingParser（U12-U14）、MarketplaceValueAnalyzer（U17-U19）、MarketplaceRiskAnalyzer（U20-U22）|
+| **MF-03** | WatchRule Sample Data | §20 有完整 WatchRule 範例 | ✅ 完成 | §20：WatchRule JSON 範例 + min_deal_score 理由；並升級為完整管線 Golden Sample（GS-001 正常 / GS-002 詐騙）|
+
+### 7.2 受影響維度的重新評分
+
+| 維度 | 原評分 | 新評分 | 變化原因 |
+|---|---|---|---|
+| ARCH Architecture Compliance | 3 / 5（1 Major）| **4.5 / 5（0 Major）**| ARCH-06 修復（§14）；ARCH-03 Repository 介面補入（§7）；ARCH-04 AIProvider 約束補入（§12）|
+| TEST Test Coverage | 2.5 / 5（1 Major）| **4.5 / 5（0 Major）**| TEST-01 修復：4 個元件補齊測試，並採共用測試模板；TEST-04 補 AI schema 錯誤測試（U16）|
+| DATA Sample Data Quality | 3 / 5（1 Major）| **4.5 / 5（0 Major）**| DATA-01/04 修復：WatchRule 範例補入；升級 Golden Sample 含邊界案例（DATA-03）|
+| NAME Naming Compliance | 3.5 / 5 | **4.5 / 5**| Analyzer 改名 Marketplace*（SI-02）；Event Catalogue 補入（§16，SI-03）|
+| EXT Extensibility | 4 / 5 | **4.5 / 5**| ConditionNorm 統一至 Knowledge（§11，SI-01 / R-02 化解）|
+| FLOW Workflow Reusability | 4 / 5 | **4.5 / 5**| Step 3-7 失敗行為補齊（§17，SI-06）|
+
+### 7.3 更新後門檻判定
+
+| 條件 | 結果 |
+|---|---|
+| 總 Blocker 數 = 0 | ✅ |
+| 所有維度 Major 失敗合計 ≤ 2 | ✅（現為 **0**）|
+| 已達到 Level 1 | ✅ |
+| 三個 Must Fix 全部完成 | ✅ |
+
+### 7.4 最終判定（v1.1）
+
+> **Pass。** Marketplace Domain v1.1 正式晉升 **Level 2（Validated）**，生效日 2026-06-29。
+
+剩餘 Minor / Nice-to-Have 項目（COMPAT-03 namespace 統一已於 §11/§18 採斜線格式、TEST AI schema 已補）轉入 Level 3 實作前的 backlog，不阻擋晉升。
+
+### 7.5 對 Template v1.1 的回饋（GOVR-008 Originator 驗證）
+
+Marketplace 作為 Template v1.1 的 **Originator**，本次對齊過程驗證了 5 個新區塊（§7、§8、§11、§14、§16）均可填入實質內容、無結構性窒礙：
+
+| 新區塊 | Marketplace 填入結果 | 對 Template 的回饋 |
+|---|---|---|
+| §7 Repository Interfaces | 3 個 Repository 介面 | 結構合用，無需修改 Template |
+| §8 Entity Status Lifecycle | Listing 狀態機完整 | 合用；WatchRule 僅布林狀態，確認「無複雜狀態機」也是合法填法 |
+| §11 Normalization Rules | ConditionNorm/CategoryNorm 歸 Knowledge | 合用，且成功化解雙重定義問題 |
+| §14 Auditable Operations | 5 類操作宣告 | 合用；「Core 擁有格式」分工清晰 |
+| §16 Event Catalogue | 5 個 Domain Event | 合用 |
+
+**結論**：Template v1.1 對 Marketplace 完全足夠，**無需修改 Template**。穩定度維持 **Experimental**，待第二個 Domain（Stocks）驗證後方可升級 Stable（見 GOVR-008）。
+
+---
+
 ## Changelog
 
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-29 | 初版：首次 Level 2 正式審查。9 維度評分，Conditional Pass，3 個 Must Fix 條件 |
+| 1.1 | 2026-06-29 | 複審：DOMAIN-001 v1.1 完成三個 Must Fix，6 個維度重新評分（Major 歸零），最終判定 **Pass → Level 2**。新增 §7 Re-Confirmation 與 Template v1.1 Originator 驗證回饋 |

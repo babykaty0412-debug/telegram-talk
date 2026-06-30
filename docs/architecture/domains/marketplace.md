@@ -3,10 +3,11 @@ doc_type: domain
 doc_id: DOMAIN-001
 title: Marketplace Domain
 status: accepted
-version: "1.0"
-date: 2026-06-27
-maturity_level: 1
-related: [GLOSS-001, ADR-0004, ADR-0005, ADR-0007, ADR-0008, ADR-0010, ADR-0011, TMPL-001]
+version: "1.1"
+date: 2026-06-29
+maturity_level: 2
+template_version: "1.1"
+related: [GLOSS-001, ADR-0004, ADR-0005, ADR-0007, ADR-0008, ADR-0009, ADR-0010, ADR-0011, ADR-0014, TMPL-001, GOVR-008, REV-MKT-001]
 tags: [domain, marketplace, secondhand, ecommerce, shopee, yahoo-auctions]
 ---
 
@@ -14,7 +15,7 @@ tags: [domain, marketplace, secondhand, ecommerce, shopee, yahoo-auctions]
 
 ## 狀態
 
-`Accepted`（自 2026-06-27）
+`Accepted`（自 2026-06-27）｜成熟度 **Level 2（Validated）**（自 2026-06-29，見 REV-MKT-001）｜對齊 Template **v1.1**
 
 ---
 
@@ -83,7 +84,7 @@ Marketplace 的資料來源（多平台爬蟲）、核心概念（Listing、Watc
 | **DealScore** | AI 對「這個 Listing 有多值得購買」的評分（0.0–1.0）| 綜合市場行情、商品狀況、賣家信譽等 |
 | **MarketPrice** | 某商品在當前市場的參考行情價格 | 存在 Knowledge 中，由使用者維護或 AI 建議 |
 | **PriceRatio** | Listing 的 total_price / MarketPrice | 低於 0.6 = 疑似好物或疑似詐騙 |
-| **ConditionNorm** | 平台特定描述到標準 Condition 的轉換規則 | 「八成新」→ like_new；「七成新」→ good |
+| **ConditionNorm** | 平台特定描述到標準 Condition 的轉換規則 | 「八成新」→ like_new；「七成新」→ good（Knowledge 驅動，見 Section 11）|
 
 ---
 
@@ -117,6 +118,7 @@ Marketplace 的資料來源（多平台爬蟲）、核心概念（Listing、Watc
 | BR-MKT-20 | Collector 不得在同一來源的請求間隔少於 30 秒 | 避免觸發平台反爬蟲機制 |
 | BR-MKT-21 | 每個 WatchRule 每次掃描最多處理 100 筆 Listing | 控制 AI 分析成本 |
 | BR-MKT-22 | 超過 90 天未更新的 Listing 自動標記為 unknown status | 減少陳舊資料 |
+| BR-MKT-23 | 單次 marketplace-scan Workflow 的 AI 呼叫總數上限 500 次 | 控制總分析成本（對應 REV-MKT-001 R-04）|
 
 ---
 
@@ -326,7 +328,74 @@ CREATE INDEX idx_analyses_deal_score ON marketplace_listing_analyses(deal_score)
 
 ---
 
-## 7. Collectors（資料收集器）
+## 7. Repository Interfaces（資料存取介面）
+
+> 對應 P-05。業務邏輯不直接寫 SQL；所有資料存取透過以下介面。Repository 不含業務邏輯，不跨 Domain 查詢。
+
+| Repository | 負責 Entity | 關鍵方法 |
+|---|---|---|
+| `ListingRepository` | `Listing` | findById / save / findByPlatformId / findActiveOlderThan / findSimilar / updateStatus |
+| `WatchRuleRepository` | `WatchRule` | findById / save / findActive / updateLastTriggered |
+| `ListingAnalysisRepository` | `ListingAnalysis` | findByListingId / save / findByDealScoreAbove |
+
+```typescript
+interface ListingRepository {
+  findById(id: string): Promise<Listing | null>
+  save(listing: Listing): Promise<void>
+  // 去重用：以平台 + 平台 ID 查詢既有 Listing（BR-MKT-04）
+  findByPlatformId(platform: string, platformListingId: string): Promise<Listing | null>
+  // 狀態檢查用：找出 active 且 last_seen_at 早於指定時間的 Listing
+  findActiveOlderThan(isoTime: string): Promise<Listing[]>
+  // Analyzer 參考用：同類商品最近 N 筆
+  findSimilar(category: string, limit: number): Promise<Listing[]>
+  updateStatus(id: string, status: Listing['status']): Promise<void>
+}
+
+interface WatchRuleRepository {
+  findById(id: string): Promise<WatchRule | null>
+  save(rule: WatchRule): Promise<void>
+  findActive(): Promise<WatchRule[]>          // is_active = true
+  updateLastTriggered(id: string, isoTime: string): Promise<void>
+}
+
+interface ListingAnalysisRepository {
+  findByListingId(listingId: string): Promise<ListingAnalysis | null>
+  save(analysis: ListingAnalysis): Promise<void>
+  findByDealScoreAbove(threshold: number): Promise<ListingAnalysis[]>
+}
+```
+
+> 切換後端（SQLite → PostgreSQL）只需替換實作，介面與業務邏輯不變。
+
+---
+
+## 8. Entity Status Lifecycle（實體狀態生命週期）
+
+### Listing 狀態機
+
+```
+        ┌──────────────────────────────┐
+        │                              ▼
+  active ──(狀態檢查發現「已售出」)──▶ sold（終態）
+  active ──(HTTP 404 / 403)──────────▶ removed（終態）
+  active ──(90 天未更新, BR-MKT-22)───▶ unknown
+  unknown ──(再次掃描到仍在架上)──────▶ active
+```
+
+| 從 | 到 | 觸發條件 | 發出的 Event |
+|---|---|---|---|
+| （新解析）| active | Parser 產出新 Listing | `marketplace.listing_matched`（若符合 WatchRule）|
+| active | sold | listing-status-check 發現商品頁顯示「已售出」| `marketplace.listing_status_changed` |
+| active | removed | listing-status-check 收到 HTTP 404/403 | `marketplace.listing_status_changed` |
+| active | unknown | last_seen_at 超過 90 天（BR-MKT-22）| `marketplace.listing_status_changed` |
+| unknown | active | 後續掃描再次確認商品在架上 | `marketplace.listing_status_changed` |
+
+> **規則**：`sold` 與 `removed` 是終態，不可再轉回。所有狀態變更必須寫入 Audit Log（Section 14，類型 `status_change`）。  
+> WatchRule 僅有 `is_active` 布林狀態（啟用/停用），無複雜狀態機。
+
+---
+
+## 9. Collectors（資料收集器）
 
 | Collector 名稱 | 對應資料來源 | 觸發方式 | 輸出格式 | 逾時設定 | 重試次數 |
 |---|---|---|---|---|---|
@@ -366,64 +435,94 @@ interface CollectorOutput {
 - 逾時 30 秒 → 標記 `failed`，記錄到 Audit Log
 - 連續 3 次 failed → P3 通知使用者「Shopee 掃描暫時中斷」
 
+> 每次外部請求均寫入 Audit Log（Section 14，類型 `external_call`）。
+
 ---
 
-## 8. Parsers（資料解析器）
+## 10. Parsers（資料解析器）
+
+> Parser 不使用 AI，只做確定性格式轉換。狀況/分類等標準化映射一律從 Section 11 Normalization Rules 載入，**不在 Parser 中硬編碼**。
 
 | Parser 名稱 | 輸入來源 | 輸出 Entity | 關鍵邏輯 |
 |---|---|---|---|
-| `ShopeeListingParser` | `ShopeeSearchCollector` | `Listing[]` | 解析 API JSON，映射 condition |
+| `ShopeeListingParser` | `ShopeeSearchCollector` | `Listing[]` | 解析 API JSON，套用 ConditionNorm，price ÷ 100 |
 | `YahooAuctionParser` | `YahooAuctionCollector` | `Listing[]` | 解析 RSS + HTML，計算 total_price（含拍賣運費）|
 | `RutenListingParser` | `RutenCollector` | `Listing[]` | 解析 RSS XML |
 
 ### `ShopeeListingParser` 詳細規格
 
 **輸入**：`ShopeeSearchCollector` 的 `CollectorOutput`  
-**輸出**：`Listing[]`
-
-**Condition 映射規則**（BR-MKT-05 的實作）：
-
-| 原始描述（Shopee 標籤）| 標準 Condition |
-|---|---|
-| 全新 / New | `new` |
-| 二手 9 成新 / 近全新 | `like_new` |
-| 二手 8 成新 / 八成新 | `like_new` |
-| 二手 7 成新 / 七成新 | `good` |
-| 二手 6 成新以下 | `fair` |
-| 零件機 / 瑕疵品 / 損壞 | `poor` |
-| 其他 / 未標示 | `unknown` |
-
-**Category 映射規則**：
-
-| 搜尋關鍵字中包含 | 推測 Category |
-|---|---|
-| LEGO、樂高 | `lego` |
-| 相機、鏡頭、Canon、Nikon、Sony Alpha | `cameras` |
-| iPhone、Android、手機、平板、筆電 | `electronics` |
-| 書、小說、漫畫、教科書 | `books` |
-| 家具、桌、椅、床 | `furniture` |
-| 其他 | `other` |
-
+**輸出**：`Listing[]`  
+**標準化依賴**：ConditionNorm、CategoryNorm（從 Knowledge 載入，見 Section 11）  
+**平台特定處理（Parser 內建，因屬穩定平台格式）**：Shopee 原始 price 為「台幣 × 100」（89000 = NT$890），Parser 固定 ÷100。  
 **無效資料處理**：
-- title 為空 → 丟棄整筆
-- price < 0 → 丟棄整筆
+- title 為空 → 丟棄整筆（BR-MKT-03）
+- price < 0 → 丟棄整筆（BR-MKT-02）
 - url 無法解析 → 丟棄整筆
+
+### `YahooAuctionParser` / `RutenListingParser` 詳細規格
+
+**輸入**：對應 Collector 的 RSS/HTML 輸出  
+**輸出**：`Listing[]`  
+**標準化依賴**：ConditionNorm、CategoryNorm（從 Knowledge 載入）  
+**平台特定處理**：
+- Yahoo 拍賣：condition 文字格式如「全新品」「二手良品」，total_price 須加計拍賣運費表
+- 露天：RSS 不含 condition 細節，condition 多為 `unknown`，由後續分析補強
 
 ---
 
-## 9. Analyzers（AI 分析器）
+## 11. Normalization Rules（標準化規則）
+
+> 解決 REV-MKT-001 EXT-02（ConditionNorm 雙重定義）：以下映射的**唯一權威位置為 Knowledge 層**，Parser 從 Knowledge Service 載入，不硬編碼。當平台改變描述格式時，使用者可直接更新 Knowledge，無需改程式。
+
+| 映射規則 | 來源值範例 | 標準值 | 儲存位置 | 更新方式 |
+|---|---|---|---|---|
+| **ConditionNorm** | 「八成新」「9 成新」「二手良品」| Condition 五級 | Knowledge `marketplace/norm/condition` | 使用者指令 / 版本更新 |
+| **CategoryNorm** | 關鍵字「樂高」「鏡頭」| Category 列舉 | Knowledge `marketplace/norm/category` | 使用者指令 / 版本更新 |
+
+### ConditionNorm 映射內容（初始值，BR-MKT-05 的實作）
+
+```
+全新 / New                      → new
+二手 9 成新 / 近全新 / 八成新     → like_new
+二手 7 成新 / 七成新             → good
+二手 6 成新以下                  → fair
+零件機 / 瑕疵品 / 損壞           → poor
+其他 / 未標示                    → unknown
+```
+
+### CategoryNorm 映射內容（初始值）
+
+```
+LEGO、樂高                              → lego
+相機、鏡頭、Canon、Nikon、Sony Alpha    → cameras
+iPhone、Android、手機、平板、筆電        → electronics
+書、小說、漫畫、教科書                   → books
+家具、桌、椅、床                         → furniture
+其他                                    → other
+```
+
+> **平台價格換算（不在此 Section）**：Shopee 的 price ×100 換算屬於「永久穩定的平台格式」，內建於 Parser（Section 10），不放 Knowledge。
+
+---
+
+## 12. Analyzers（AI 分析器）
+
+> ⚠️ **架構約束（P-07）**：以下 Analyzer 的所有 AI 呼叫必須透過 `AIProvider` 介面，**不得直接 import Anthropic / OpenAI SDK**。
 
 | Analyzer 名稱 | 輸入 | 輸出 | AI 模型偏好 | Prompt 策略 |
 |---|---|---|---|---|
-| `ListingValueAnalyzer` | `Listing` + MarketPrice Knowledge | `ListingAnalysis` | claude-haiku-4-5（速度優先）| Structured output + few-shot |
-| `ListingRiskAnalyzer` | `Listing` | Risk flags | claude-haiku-4-5 | Rule-based + AI 輔助 |
+| `MarketplaceValueAnalyzer` | `Listing` + MarketPrice Knowledge | `ListingAnalysis` | claude-haiku-4-5（速度優先）| Structured output + few-shot |
+| `MarketplaceRiskAnalyzer` | `Listing` | Risk flags | claude-haiku-4-5 | Rule-based + AI 輔助 |
 
-### `ListingValueAnalyzer` 詳細規格
+> **命名說明（REV-MKT-001 SI-02）**：採用 `Marketplace{Function}Analyzer` 形式（Domain 前綴），與 GOVR-006 一致；取代舊版 `ListingValueAnalyzer` / `ListingRiskAnalyzer`。
+
+### `MarketplaceValueAnalyzer` 詳細規格
 
 **目的**：判斷一個 Listing 相對於市場行情是否值得購買，輸出 DealScore。  
 **輸入**：
 ```typescript
-interface ListingValueInput {
+interface MarketplaceValueInput {
   listing: Listing
   market_price: number | null       // 從 Knowledge 查詢，可能為 null
   category_thresholds: {            // 從 Knowledge 查詢
@@ -431,7 +530,7 @@ interface ListingValueInput {
     good_deal_ratio: number         // e.g., 0.75
     fair_price_ratio: number        // e.g., 0.9
   }
-  similar_listings: Listing[]       // 同類商品最近 20 筆（來自 DB）
+  similar_listings: Listing[]       // 同類商品最近 20 筆（來自 ListingRepository.findSimilar）
 }
 ```
 **輸出 Schema**（`ListingAnalysis` 欄位的子集）：
@@ -447,14 +546,22 @@ interface ValueAnalysisOutput {
 ```
 **Prompt 策略**：Few-shot with structured output。提供 3 個範例（good_deal、overpriced、suspicious），要求 JSON 輸出。  
 **Knowledge 依賴**：
-- `marketplace.{category}.market_price` — 特定商品型號的市場行情
-- `marketplace.{category}.thresholds` — 各類別的好物門檻設定  
+- `marketplace/{category}/market_price` — 特定商品型號的市場行情
+- `marketplace/{category}/thresholds` — 各類別的好物門檻設定
 
 **最低 Confidence 門檻**：0.65（低於此值 → L2 驗證：用不同 Prompt 再跑一次）
 
+### `MarketplaceRiskAnalyzer` 詳細規格
+
+**目的**：偵測詐騙與風險，輸出 `RiskFlag[]`。  
+**輸入**：`Listing`（含 price、market_price 參考、seller_rating、images、description）  
+**輸出**：`RiskFlag[]` + 每個 flag 的 confidence  
+**規則 + AI 混合**：明確規則（price < market×0.35 → `price_suspiciously_low`；image_count = 0 → `no_images`；seller 評價 < 10 → `new_seller`）先行，AI 補強模糊判斷（`vague_description`、`condition_mismatch`、`possible_replica`）。  
+**`possible_replica` 門檻**：AI confidence ≥ 0.7 才標記（避免偽陽性，REV-MKT-001 R-07）。
+
 ---
 
-## 10. Validators（驗證器）
+## 13. Validators（驗證器）
 
 ### L1 自動驗證
 
@@ -465,6 +572,7 @@ interface ValueAnalysisOutput {
 | URL 合法性 | 必須為可解析的 HTTP URL | 丟棄 Listing |
 | 疑似詐騙價格 | total_price < MarketPrice × 0.35 | 標記 `price_suspiciously_low`，仍保留 |
 | Confidence 篩選 | Analyzer confidence < 0.65 | 升級至 L2 |
+| AI 輸出 Schema | deal_score / value_verdict / confidence 欄位齊全且型別正確 | 缺欄位 → 視為分析失敗，不發通知，等下次重試 |
 
 ### L2 交叉驗證
 
@@ -482,7 +590,24 @@ interface ValueAnalysisOutput {
 
 ---
 
-## 11. Notification Rules（通知規則）
+## 14. Auditable Operations（可審計操作）
+
+> 對應 P-09 與 ADR-0009。Audit Log 的記錄格式、儲存、append-only 保證由 **Core 統一提供**；本 Domain 只宣告以下操作必須寫入 Audit Log，並提供 metadata 欄位。
+
+| 操作 | 類型 | 必須審計？ | metadata 關鍵欄位 |
+|---|---|---|---|
+| 各平台搜尋/狀態 HTTP 請求 | `external_call` | ✅ | platform, endpoint, status_code, rate_limited |
+| P1 / P2 通知發送 | `notification` | ✅ | rule_id, listing_id, priority, channel |
+| MarketPrice / CategoryThresholds 寫入 | `knowledge_write` | ✅ | knowledge_key, old_value→new_value, approved_by |
+| ConditionNorm / CategoryNorm 更新 | `knowledge_write` | ✅ | knowledge_key, old_value→new_value, approved_by |
+| Listing 狀態變更（active→sold/removed/unknown）| `status_change` | ✅ | entity_id, from, to, trigger |
+
+> Core 自動填入的共用欄位：`operation_type, domain('marketplace'), entity_id, action, actor, timestamp, result, metadata`。  
+> **絕對禁止（P-09）**：不自動購買、不自動出價、不代發訊息給賣家。
+
+---
+
+## 15. Notification Rules（通知規則）
 
 | 規則 ID | 觸發條件 | 優先級 | 管道 | Cooldown | 格式 |
 |---|---|---|---|---|---|
@@ -525,7 +650,21 @@ interface ValueAnalysisOutput {
 
 ---
 
-## 12. Workflows（工作流程）
+## 16. Event Catalogue（事件目錄）
+
+> 對應 COMPAT-01 與命名規範 SYS-002（`{namespace}.{subject}_{past_verb}`）。所有 Event 名稱定義於 `packages/core/events.ts`。
+
+| Event 名稱 | 觸發時機 | Payload 關鍵欄位 | 訂閱者 |
+|---|---|---|---|
+| `marketplace.listing_matched` | WatchRuleMatcher 確認 Listing 符合至少一個 WatchRule | listing_id, watch_rule_ids[] | Analyzer 排程 |
+| `marketplace.listing_analyzed` | Analyzer 完成 ListingAnalysis | listing_id, deal_score, value_verdict | Validator、Notification Dispatcher |
+| `marketplace.listing_status_changed` | listing-status-check 偵測狀態轉換 | listing_id, from_status, to_status | Notification Dispatcher（P3）|
+| `marketplace.notification_sent` | Notification Dispatcher 完成發送 | rule_id, listing_id, priority | Audit、Dashboard |
+| `marketplace.scan_completed` | marketplace-scan Workflow 結束 | scanned_count, matched_count, analyzed_count, ai_calls | Dashboard、月度統計 |
+
+---
+
+## 17. Workflows（工作流程）
 
 | Workflow 名稱 | 觸發方式 | 排程 | 預估執行時間 |
 |---|---|---|---|
@@ -535,45 +674,52 @@ interface ValueAnalysisOutput {
 
 ### Workflow：`marketplace-scan`
 
-**觸發**：Scheduler 發出 `workflow.triggered` Event，payload 包含 `workflow_id: 'marketplace-scan'`  
+**觸發**：Scheduler 發出 `workflow.triggered` Event，payload 包含 `workflow_id: 'marketplace-scan'`（ADR-0014）  
 **目的**：對所有 active WatchRule 掃描各平台新商品，分析後觸發通知
 
 ```
-Step 1: WatchRuleLoader            [Repository Query]
-  → 查詢所有 is_active = true 的 WatchRule
+Step 1: WatchRuleLoader            [Repository Query — WatchRuleRepository.findActive()]
   → 輸出：WatchRule[]
+  → 失敗行為：查詢失敗 → abort workflow（無規則可掃描）
 
 Step 2: ShopeeSearchCollector      [Collector Worker]  ─┐
         YahooAuctionCollector      [Collector Worker]   ├─ 並行執行
         RutenCollector             [Collector Worker]  ─┘
   → 輸入：各 WatchRule 的關鍵字集合
-  → 輸出：CollectorOutput[]（各平台原始資料）
-  → 錯誤：任一 Collector 失敗 → 記錄錯誤，繼續其他平台
+  → 輸出：CollectorOutput[]
+  → 失敗行為：任一 Collector 失敗 → 記錄錯誤（Audit external_call），skip 該平台，繼續其他平台
 
 Step 3: ShopeeListingParser        [Parser Worker]  ─┐
         YahooAuctionParser         [Parser Worker]   ├─ 並行執行
         RutenListingParser         [Parser Worker]  ─┘
   → 輸入：各 Collector 的 CollectorOutput
   → 輸出：Listing[]（已解析）
-  → 去重：platform + platform_listing_id 已存在 DB → 更新 last_seen_at，跳過分析
+  → 去重：ListingRepository.findByPlatformId 已存在 → 更新 last_seen_at，跳過分析
+  → 失敗行為：單筆解析失敗 → skip 該筆，不中斷；整個 Parser 失敗 → skip 該平台
 
 Step 4: WatchRuleMatcher           [Core Logic]
   → 輸入：新 Listing[]、WatchRule[]
-  → 輸出：{ listing, watch_rules: WatchRule[] }[]（每個新 Listing 符合的規則）
-  → 只有符合至少一個 WatchRule 的 Listing 才進入分析
+  → 輸出：{ listing, watch_rules: WatchRule[] }[]
+  → 發出 marketplace.listing_matched
+  → 失敗行為：單筆比對異常 → 記錄 failed，skip 該筆，繼續下一筆
 
-Step 5: ListingValueAnalyzer       [Analyzer Worker]  ← 並行，每 Listing 一個
-        ListingRiskAnalyzer        [Analyzer Worker]  ← 與 ValueAnalyzer 並行
+Step 5: MarketplaceValueAnalyzer   [Analyzer Worker]  ← 並行，每 Listing 一個
+        MarketplaceRiskAnalyzer    [Analyzer Worker]  ← 與 ValueAnalyzer 並行
   → 輸入：Listing + 相關 Knowledge（MarketPrice、Thresholds）
-  → 輸出：ListingAnalysis
+  → 輸出：ListingAnalysis；發出 marketplace.listing_analyzed
+  → 成本上限：本 Workflow AI 呼叫總數 ≤ 500（BR-MKT-23），達上限則停止分析剩餘 Listing 並記錄
+  → 失敗行為：單筆分析失敗（含 AI 超時）→ 標記 failed，該 Listing 不發通知，等下次掃描重試
 
 Step 6: L1 Validator               [Validator]
-  → 過濾低品質分析結果
-  → confidence < 0.65 → 觸發 L2（再分析一次）
+  → 過濾低品質分析結果；confidence < 0.65 → 觸發 L2
+  → 失敗行為：AI 輸出 schema 不符 → 視為分析失敗，skip 該筆
 
 Step 7: Notification Dispatcher    [Core]
   → 依 BR-MKT-10 / BR-MKT-11 決定 P1 立即通知 或加入 P2 批次佇列
-  → 套用 Cooldown 規則（BR-MKT-13）
+  → 套用 Cooldown 規則（BR-MKT-13/14）；發出 marketplace.notification_sent（Audit notification）
+  → 失敗行為：發送失敗 → 重試 1 次，仍失敗則記錄 failed，不阻斷其他通知
+
+最後：發出 marketplace.scan_completed
 ```
 
 ### Workflow：`listing-status-check`
@@ -582,16 +728,18 @@ Step 7: Notification Dispatcher    [Core]
 **目的**：確認追蹤中的 Listing 是否已售出或下架
 
 ```
-Step 1: 查詢 status = 'active' 且 last_seen_at < 24 小時前的 Listing
-Step 2: 對各 Listing 發出 HEAD 請求確認 URL 存活
-Step 3: 404 / 403 → 更新 status = 'removed'
-        商品頁顯示「已售出」→ 更新 status = 'sold'
-Step 4: 若 status 有變更 → Event: marketplace.listing_status_changed
+Step 1: ListingRepository.findActiveOlderThan(now - 24h)
+  → 失敗行為：查詢失敗 → abort workflow
+Step 2: 對各 Listing 發出 HEAD 請求確認 URL 存活（Audit external_call）
+  → 失敗行為：單筆請求失敗 → skip 該筆，繼續其他
+Step 3: 404 / 403 → status = 'removed'；商品頁顯示「已售出」→ status = 'sold'
+Step 4: 若 status 有變更 → ListingRepository.updateStatus + Audit status_change
+        + 發出 marketplace.listing_status_changed
 ```
 
 ---
 
-## 13. Knowledge（知識庫）
+## 18. Knowledge（知識庫）
 
 ### 知識項目清單
 
@@ -599,9 +747,11 @@ Step 4: 若 status 有變更 → Event: marketplace.listing_status_changed
 |---|---|---|---|---|
 | 各類別市場行情價 | Reference | 使用者手動輸入 | 使用者指令 / AI 建議 | L3 人工確認（AI 建議）|
 | 各類別好物門檻（PriceRatio）| Rule | 系統預設 | 使用者調整 | L1 自動 |
-| 條件轉換規則（ConditionNorm）| Rule | 系統內建 | 版本更新 | — |
+| 條件轉換規則（ConditionNorm）| Rule | 系統內建 | 使用者指令 / 版本更新 | L3 人工確認（使用者更新）|
+| 分類辨識規則（CategoryNorm）| Rule | 系統內建 | 使用者指令 / AI 建議 | L3 人工確認 |
 | 各平台已知詐騙模式 | Fact | 使用者回報 / AI 建議 | 使用者確認 | L3 人工確認 |
-| 商品類別辨識規則 | Rule | 系統內建 + AI 建議 | AI 建議 + L3 | L3 人工確認 |
+
+> ConditionNorm / CategoryNorm 為 Section 11 Normalization Rules 的權威儲存位置；Parser 從此載入。
 
 ### 知識 Schema
 
@@ -634,6 +784,18 @@ interface CategoryThresholds {
     suspicious_ratio: number    // 低於此 = 疑似詐騙（預設 0.35）
   }
 }
+
+// 標準化映射（NormalizationKnowledge）— ConditionNorm / CategoryNorm
+interface NormalizationKnowledge {
+  domain: 'marketplace'
+  topic: 'norm'
+  content: {
+    norm_type: 'condition' | 'category'
+    mappings: { from: string; to: string }[]
+  }
+  confidence: number
+  requires_approval: boolean
+}
 ```
 
 ### 預設知識初始值
@@ -652,30 +814,57 @@ interface CategoryThresholds {
 
 ---
 
-## 14. Test Cases（測試案例）
+## 19. Test Cases（測試案例）
 
-### Unit Test Cases
+> 依 Template v1.1：每個 Parser 套用 Parser Test Template（正常解析 / 必填缺失丟棄 / Normalization 對應 / 格式邊界），每個 Analyzer 套用 Analyzer Test Template（分數範圍 / verdict 合法性 / confidence 門檻 / Golden Sample Replay）。
+
+### Unit Test Cases — Parsers
+
+| 測試案例 | 測試對象 | 測試類型 | 輸入 | 預期輸出 | 覆蓋規則 |
+|---|---|---|---|---|---|
+| `TC-MKT-U01` | `ShopeeListingParser` | 正常解析 | 正常 Shopee 商品 JSON | 完整 `Listing`，price ÷100 正確 | BR-MKT-01 |
+| `TC-MKT-U02` | `ShopeeListingParser` | 必填缺失丟棄 | 缺少 title 的資料 | 丟棄（空陣列）| BR-MKT-03 |
+| `TC-MKT-U03` | `ShopeeListingParser` | Normalization 對應 | `condition_raw = "八成新"` | `condition = 'like_new'` | BR-MKT-05 |
+| `TC-MKT-U04` | `ShopeeListingParser` | 格式邊界 | price 欄位為 `89000`（×100 格式）| `price = 890` | BR-MKT-02 |
+| `TC-MKT-U09` | `YahooAuctionParser` | 正常解析 | 正常 Yahoo 拍賣 RSS + HTML | 完整 `Listing`，total_price 含拍賣運費 | BR-MKT-01 |
+| `TC-MKT-U10` | `YahooAuctionParser` | 必填缺失丟棄 | RSS item 缺少標題 | 丟棄該筆 | BR-MKT-03 |
+| `TC-MKT-U11` | `YahooAuctionParser` | Normalization 對應 | `condition_raw = "二手良品"` | `condition = 'good'`（依 ConditionNorm）| BR-MKT-05 |
+| `TC-MKT-U12` | `RutenListingParser` | 正常解析 | 正常露天 RSS XML | 完整 `Listing` | BR-MKT-01 |
+| `TC-MKT-U13` | `RutenListingParser` | 必填缺失丟棄 | RSS 缺少價格欄位 | 丟棄該筆 | BR-MKT-02 |
+| `TC-MKT-U14` | `RutenListingParser` | 格式邊界 | RSS 無 condition 資訊 | `condition = 'unknown'`（不丟棄）| BR-MKT-05 |
+
+### Unit Test Cases — Matcher / Validator
 
 | 測試案例 | 測試對象 | 輸入 | 預期輸出 | 覆蓋規則 |
 |---|---|---|---|---|
-| `TC-MKT-U01` | `ShopeeListingParser` | 正常的 Shopee 商品 JSON | 完整的 `Listing` 物件 | BR-MKT-01 |
-| `TC-MKT-U02` | `ShopeeListingParser` | 缺少 title 的資料 | 丟棄（空陣列）| BR-MKT-03 |
-| `TC-MKT-U03` | `ShopeeListingParser` | `condition_raw = "八成新"` | `condition = 'like_new'` | BR-MKT-05 |
-| `TC-MKT-U04` | `ShopeeListingParser` | `condition_raw = "七成新"` | `condition = 'good'` | BR-MKT-05 |
 | `TC-MKT-U05` | `WatchRuleMatcher` | Listing（LEGO City，NT$300）+ Rule（LEGO，max NT$400）| Match | BR-MKT-10 |
 | `TC-MKT-U06` | `WatchRuleMatcher` | Listing（LEGO City，NT$500）+ Rule（LEGO，max NT$400）| No match | BR-MKT-10 |
 | `TC-MKT-U07` | `WatchRuleMatcher` | Listing（含排除關鍵字「零件」）| No match（exclude_keywords）| — |
 | `TC-MKT-U08` | `L1 Validator` | total_price = 50，market_price = 1000 | 標記 `price_suspiciously_low` | BR-MKT-12 |
+| `TC-MKT-U15` | `L1 Validator` | Analyzer 回傳 confidence = 0.5 | 升級至 L2 | — |
+| `TC-MKT-U16` | `L1 Validator` | AI 輸出缺少 `deal_score` 欄位 | 視為分析失敗，不發通知 | — |
+
+### Unit Test Cases — Analyzers
+
+| 測試案例 | 測試對象 | 測試類型 | 輸入 | 預期輸出 |
+|---|---|---|---|---|
+| `TC-MKT-U17` | `MarketplaceValueAnalyzer` | 分數範圍 | 任意 Listing + market_price | `0.0 ≤ deal_score ≤ 1.0`，`0.0 ≤ confidence ≤ 1.0` |
+| `TC-MKT-U18` | `MarketplaceValueAnalyzer` | verdict 合法性 | 任意 Listing | `value_verdict` ∈ 五個合法列舉值 |
+| `TC-MKT-U19` | `MarketplaceValueAnalyzer` | Golden Sample Replay | Golden Sample stage_2 輸入 | DealScore 與人工標注的 Spearman 相關 ≥ 0.6 |
+| `TC-MKT-U20` | `MarketplaceRiskAnalyzer` | 規則命中 | image_count = 0 的 Listing | risk_flags 含 `no_images` |
+| `TC-MKT-U21` | `MarketplaceRiskAnalyzer` | 規則命中 | total_price < market×0.35 | risk_flags 含 `price_suspiciously_low` |
+| `TC-MKT-U22` | `MarketplaceRiskAnalyzer` | 偽陽性門檻 | 正常商品，AI replica confidence = 0.5 | 不標記 `possible_replica`（門檻 0.7）|
 
 ### Integration Test Cases
 
 | 測試案例 | 測試流程 | 前置條件 | 驗證點 |
 |---|---|---|---|
-| `TC-MKT-I01` | `marketplace-scan` 完整執行 | Mock Shopee 回傳 10 筆商品，其中 3 筆符合 WatchRule | 3 筆 Listing 進入 DB，Analyzer 被呼叫 3 次 |
+| `TC-MKT-I01` | `marketplace-scan` 完整執行 | Mock Shopee 回傳 10 筆，其中 3 筆符合 WatchRule | 3 筆 Listing 進入 DB，Analyzer 被呼叫 3 次 |
 | `TC-MKT-I02` | 重複 Listing 去重 | 同一 platform_listing_id 在兩次掃描中出現 | 第二次只更新 last_seen_at，不重複分析 |
 | `TC-MKT-I03` | P1 通知觸發 | DealScore = 0.85，符合 WatchRule | Notification Dispatcher 發出 P1 通知 |
 | `TC-MKT-I04` | Cooldown 防止重複通知 | 同一 Listing 在 24 小時內再次被掃描到 | 不重複發送通知 |
 | `TC-MKT-I05` | Collector 失敗不中斷流程 | Shopee Collector 回傳 HTTP 500 | Yahoo/Ruten 繼續執行，只記錄 Shopee 失敗 |
+| `TC-MKT-I06` | AI 成本上限 | 單次掃描可分析 600 筆 | 達 500 筆後停止，記錄並發出 scan_completed |
 
 ### Edge Cases
 
@@ -689,77 +878,126 @@ interface CategoryThresholds {
 
 ---
 
-## 15. Sample Data（範例資料）
+## 20. Golden Sample（黃金樣本）
 
-### 原始資料範例（ShopeeSearchCollector 輸出）
+> 依 Template v1.1：保存資料流經每一層的完整快照，使 Replay（GOVR-007）可直接重跑，並作為 Golden Dataset（GOVR-006）種子。
+
+### GS-001：正常情境（LEGO 好物，Shopee）
 
 ```json
 {
-  "raw": "{\"items\":[{\"item_id\":123456789,\"name\":\"LEGO 60197 城市系列 客運火車 二手 九成新\",\"price\":89000,\"price_min\":89000,\"price_max\":89000,\"item_rating\":{\"rating_star\":0},\"seller_id\":98765432,\"shop_name\":\"小明的玩具店\",\"shop_rating\":4.8,\"image\":\"xxxxxx.jpg\",\"stock\":1,\"liked_count\":3,\"sold\":0,\"cmt_count\":0,\"shop_location\":\"台北市\",\"shipping_fee_info\":{\"item_shop_free_ship_limit\":0}}]}",
-  "source": "shopee",
-  "query": "LEGO 城市系列",
-  "fetched_at": "2026-06-27T10:00:00Z",
-  "metadata": { "result_count": 1, "page": 1 }
+  "sample_id": "marketplace-gs-001",
+  "stage_0_raw": {
+    "source": "shopee",
+    "raw": "{\"items\":[{\"item_id\":123456789,\"name\":\"LEGO 60197 城市系列 客運火車 二手 九成新\",\"price\":89000,\"shop_rating\":4.8,\"shop_location\":\"台北市\",\"image\":\"xxxxxx.jpg\",\"cmt_count\":0}]}",
+    "fetched_at": "2026-06-29T10:00:00Z"
+  },
+  "stage_1_preprocessed": { "note": "Shopee 為結構化 JSON，無需 OCR", "content": null },
+  "stage_2_parsed": {
+    "platform": "shopee",
+    "platform_listing_id": "123456789",
+    "title": "LEGO 60197 城市系列 客運火車 二手 九成新",
+    "condition": "like_new",
+    "condition_raw": "九成新",
+    "category": "lego",
+    "price": 890,
+    "shipping_cost": 0,
+    "total_price": 890,
+    "seller_rating": 4.8,
+    "location": "台北市",
+    "status": "active"
+  },
+  "stage_3_analyzed": {
+    "deal_score": 0.82,
+    "value_verdict": "good_deal",
+    "condition_assessment": "賣家標示九成新，對 LEGO 通常表示積木完整、無缺件，但未提及說明書。",
+    "risk_flags": [],
+    "reason": "LEGO 60197 全新市場價約 NT$1,499，此件 NT$890（約 59% 市場價），狀況良好，賣家評分 4.8，值得考慮。建議詢問說明書是否完整。",
+    "confidence": 0.88,
+    "market_price_reference": 1499,
+    "price_ratio": 0.59,
+    "model_used": "claude-haiku-4-5-20251001"
+  },
+  "stage_4_notification": {
+    "priority": "P1",
+    "rendered_message": "🎯 好物發現：找 LEGO 城市系列\n\n📦 LEGO 60197 城市系列 客運火車 二手 九成新\n💰 NT$890（含運）\n✨ 狀況：九成新｜DealScore：8.2/10\n📍 蝦皮\n\n💬 全新市場價約 NT$1,499，此件約 59% 市場價，狀況良好，賣家評分 4.8。\n\n👉 https://shopee.tw/product/98765432/123456789"
+  }
 }
 ```
 
-### 解析後資料範例（Parser 輸出）
+### GS-002：異常情境（疑似詐騙，異常低價無照片）
 
 ```json
 {
-  "id": "uuid-here",
-  "platform": "shopee",
-  "platform_listing_id": "123456789",
-  "url": "https://shopee.tw/product/98765432/123456789",
-  "title": "LEGO 60197 城市系列 客運火車 二手 九成新",
-  "description": null,
-  "condition": "like_new",
-  "condition_raw": "九成新",
+  "sample_id": "marketplace-gs-002",
+  "stage_0_raw": {
+    "source": "ruten",
+    "raw": "<item><title>Canon EF 50mm f/1.8 鏡頭 便宜出清</title><price>450</price><desc>限量 快搶</desc></item>",
+    "fetched_at": "2026-06-29T10:05:00Z"
+  },
+  "stage_1_preprocessed": { "note": "RSS 純文字，無需 OCR", "content": null },
+  "stage_2_parsed": {
+    "platform": "ruten",
+    "platform_listing_id": "R-998877",
+    "title": "Canon EF 50mm f/1.8 鏡頭 便宜出清",
+    "condition": "unknown",
+    "condition_raw": null,
+    "category": "cameras",
+    "price": 450,
+    "shipping_cost": 0,
+    "total_price": 450,
+    "seller_rating": null,
+    "status": "active"
+  },
+  "stage_3_analyzed": {
+    "deal_score": 0.15,
+    "value_verdict": "suspicious",
+    "condition_assessment": "無狀況描述、無照片、賣家無評分，價格遠低於市場。",
+    "risk_flags": ["price_suspiciously_low", "no_images", "new_seller", "vague_description"],
+    "reason": "Canon EF 50mm f/1.8 市場行情約 NT$3,000，此件僅 NT$450（15% 市場價），無照片、描述模糊、賣家無評分，高度疑似詐騙，不建議交易。",
+    "confidence": 0.91,
+    "market_price_reference": 3000,
+    "price_ratio": 0.15,
+    "model_used": "claude-haiku-4-5-20251001"
+  },
+  "stage_4_notification": {
+    "priority": "P3",
+    "rendered_message": "⚠️ 此商品疑似詐騙，已自動標記，未推送 P1。詳見 Dashboard。"
+  }
+}
+```
+
+### WatchRule 範例（驅動上述掃描的輸入）
+
+```json
+{
+  "id": "wr-001",
+  "name": "找 LEGO 城市系列",
   "category": "lego",
-  "subcategory": "城市系列",
-  "images": ["https://cf.shopee.tw/file/xxxxxx.jpg"],
-  "price": 890,
-  "shipping_cost": 0,
-  "total_price": 890,
-  "seller_id": "98765432",
-  "seller_name": "小明的玩具店",
-  "seller_rating": 4.8,
-  "location": "台北市",
-  "status": "active",
-  "listed_at": null,
-  "last_seen_at": "2026-06-27T10:00:00Z",
-  "raw_hash": "sha256:abcdef...",
-  "created_at": "2026-06-27T10:00:05Z",
-  "updated_at": "2026-06-27T10:00:05Z"
+  "keywords": ["LEGO", "樂高", "城市系列", "60197"],
+  "exclude_keywords": ["零件", "缺件", "說明書", "貼紙"],
+  "max_total_price": 1200,
+  "min_condition": "good",
+  "platforms": ["shopee", "yahoo_auction", "ruten"],
+  "min_deal_score": 0.6,
+  "notification_priority": "P1",
+  "is_active": true,
+  "last_triggered_at": null,
+  "created_at": "2026-06-29T09:00:00Z",
+  "updated_at": "2026-06-29T09:00:00Z"
 }
 ```
 
-> 補充說明：Shopee 原始 price 欄位通常是「台幣 × 100」格式（89000 = NT$890），Parser 需做轉換。
-
-### 分析後資料範例（Analyzer 輸出）
-
-```json
-{
-  "deal_score": 0.82,
-  "value_verdict": "good_deal",
-  "condition_assessment": "賣家標示九成新，對 LEGO 而言通常表示積木完整、無缺件，但描述未提及說明書是否完整。",
-  "risk_flags": [],
-  "reason": "LEGO 60197 全新市場價約 NT$1,499，此件以 NT$890 出售（約 59% 市場價），狀況良好，賣家評分 4.8，整體評估為值得考慮的好物。建議詢問說明書是否完整。",
-  "confidence": 0.88,
-  "market_price_reference": 1499,
-  "price_ratio": 0.59,
-  "model_used": "claude-haiku-4-5-20251001"
-}
-```
+> `min_deal_score` 預設 0.6 的理由：低於 0.6 多為「公平價格」或「偏貴」，對「主動找好物」的使用者價值低；0.6 在 Manual Baseline 測試中平衡了通知量與品質（見 GOVR-005）。
 
 ---
 
-## 16. Future Extensions（未來擴充）
+## 21. Future Extensions（未來擴充）
 
 ### V2 計劃
 
 - **Facebook Marketplace Collector**：需要維護一個已登入的 session，計劃在 V2 實作，屆時需要解決 auth token 的安全儲存問題（使用 Keychain / 加密 SQLite 欄位）
-- **價格走勢分析**（`PriceTrendAnalyzer`）：追蹤特定商品類別的價格趨勢，在「LEGO 城市系列近期價格偏高，建議等待」時通知
+- **價格走勢分析**（`MarketplacePriceTrendAnalyzer`）：追蹤特定商品類別的價格趨勢，在「LEGO 城市系列近期價格偏高，建議等待」時通知
 - **賣家信譽追蹤**：跨時間記錄同一賣家的評分變化和成交率
 
 ### V3 考慮
@@ -789,3 +1027,4 @@ interface CategoryThresholds {
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，完整定義 Marketplace Domain 的 16 個 Section |
+| 1.1 | 2026-06-29 | 對齊 Template v1.1（21 區塊）。新增 §7 Repository Interfaces、§8 Entity Status Lifecycle、§11 Normalization Rules、§14 Auditable Operations、§16 Event Catalogue。Must Fix：MF-01 Audit（§14）、MF-02 補 YahooAuctionParser/RutenListingParser/兩個 Analyzer 各 ≥3 測試（§19）、MF-03 WatchRule + Golden Sample（§20）。Should Improve：ConditionNorm 統一至 Knowledge（§11）、Analyzer 改名 Marketplace*（§12）、AIProvider 約束（§12）、Workflow 步驟失敗行為（§17）、新增 BR-MKT-23 AI 成本上限。晉升 Level 2（REV-MKT-001）。|
