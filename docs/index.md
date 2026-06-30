@@ -80,7 +80,7 @@ date: 2026-06-29
 
 | 文件 | 說明 | 狀態 |
 |---|---|---|
-| [templates/domain-template.md](./templates/domain-template.md) | Domain 設計模板：所有 Domain 必須使用此模板，含 16 個必填區塊 | Accepted v1.0 |
+| [templates/domain-template.md](./templates/domain-template.md) | Domain 設計模板：所有 Domain 必須使用此模板，含 21 個區塊（v1.1 由 Marketplace 實戰驗證擴充）| Accepted v1.1（Experimental）|
 
 ---
 
@@ -97,7 +97,9 @@ date: 2026-06-29
 | [governance/benchmark-strategy.md](./governance/benchmark-strategy.md) | Benchmark 策略（GOVR-005）：AI vs 手動基準、Manual Baseline 建立、4 個評估維度、5 個 AI 勝出條件 | Accepted v1.0 |
 | [governance/golden-dataset-specification.md](./governance/golden-dataset-specification.md) | Golden Dataset 規格（GOVR-006）：資料結構、標注流程、品質要求、版本管理 | Accepted v1.0 |
 | [governance/replay-regression-strategy.md](./governance/replay-regression-strategy.md) | Replay & Regression 策略（GOVR-007）：Replay Pipeline、Regression 門檻、Level Acceptance Criteria、根因分析框架 | Accepted v1.0 |
+| [governance/template-evolution-policy.md](./governance/template-evolution-policy.md) | Template 演進政策與驗證史（GOVR-008）：穩定度生命週期（Experimental→Stable）、2-Domain 驗證原則、Template Validation History | Accepted v1.0 |
 | [governance/product-validation/marketplace-roadmap.md](./governance/product-validation/marketplace-roadmap.md) | Marketplace Roadmap（GOVR-PV-MKT-001）：7 階段完整生命週期、各階段 Entry/Exit Criteria、Prototype 驗收標準、Performance KPI、Golden Domain 條件、風險清單 | Accepted v1.0 |
+| [governance/reviews/marketplace-v1.0-level2-review.md](./governance/reviews/marketplace-v1.0-level2-review.md) | Marketplace Level 2 審查報告（REV-MKT-001）：9 維度評分、Reusability Assessment、架構風險、Conditional Pass | Accepted v1.0 |
 
 ---
 
@@ -163,5 +165,5 @@ date: 2026-06-29
 *ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
 *Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
 *通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*  
-*Domain 文件：1 份（marketplace，Level 1 Defined），模板：1 份（domain-template）*  
-*治理框架：8 份（GOVR-001~003 架構驗證 + GOVR-004~007 產品驗證 + GOVR-PV-MKT-001 Marketplace Roadmap）*
+*Domain 文件：1 份（marketplace，Level 1 Defined），模板：1 份（domain-template v1.1 Experimental）*  
+*治理框架：9 份（GOVR-001~003 架構驗證 + GOVR-004~007 產品驗證 + GOVR-008 Template 演進 + GOVR-PV-MKT-001 Marketplace Roadmap）+ 審查紀錄 1 份（REV-MKT-001）*
