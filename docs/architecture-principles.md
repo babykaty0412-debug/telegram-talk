@@ -3,7 +3,7 @@ doc_type: architecture
 doc_id: ARCH-003
 title: PAOS Architecture Principles
 status: accepted
-version: "1.1"
+version: "1.2"
 date: 2026-06-29
 related: [GLOSS-001, ARCH-001, ARCH-002]
 tags: [principles, architecture, design, constraints]
@@ -167,6 +167,27 @@ const rules = await knowledgeRepo.findByDomain('stocks')
 
 ---
 
+### P-14：Secrets Never Leave the Runtime（機密永不離開執行環境）
+
+**來源**：ADR-0009, ADR-0015, 本專案 Product Validation 經驗（Marketplace MVP）  
+**規則**：API Key、Token、密碼、憑證等任何機密，**只存在於執行環境**（環境變數或 Secret Manager），且：
+- **絕不寫入 Git**（包含 commit、分支、歷史紀錄）
+- **絕不寫入文件**（docs / README / Changelog / 範例）
+- **絕不貼入 AI 對話或 prompt**
+- **絕不硬編碼於程式碼**
+- 一律透過**環境變數或 Secret Manager** 注入執行環境
+
+**Why**：機密一旦進入 Git、文件或對話，就等同公開洩漏，而且幾乎無法撤銷（Git 歷史、對話記錄、文件副本都會留存）。將機密限制在執行環境，是 PAOS 未來接 Facebook、GitHub、Telegram、Google 等服務時共用的安全基礎。  
+**違反後果**：憑證外洩、帳號被盜用、需緊急輪替所有受影響的金鑰。  
+**實踐**：
+- `.env` 必須被 gitignore；只提交 `.env.example`（**只有鍵名、沒有值**）。
+- 程式一律從 `process.env` / Secret Manager 讀取，不接受呼叫端傳入明文憑證。
+- **AI Provider 由執行環境注入憑證**：業務邏輯只拿到 Provider 介面，拿不到金鑰本身。
+- 驗證/測試流程不得要求把金鑰交給第三方（包含 AI 助手）。  
+**性質**：屬於**最高安全層級**，與 P-09、P-10 同級，優先於一切架構優雅性。
+
+---
+
 ## 原則優先級
 
 當兩個原則衝突時，以下優先級適用：
@@ -179,7 +200,7 @@ P-09（Audit Everything）> P-10（Fail Safe）> P-01（Glossary First）
 > P-11（Single Ownership）> P-12（Graceful Degradation）
 ```
 
-**安全性和可追蹤性（P-09, P-10）永遠優先於架構優雅性。**
+**安全性和可追蹤性（P-09, P-10, P-14）永遠優先於架構優雅性。**
 
 ---
 
@@ -195,12 +216,12 @@ P-09（Audit Everything）> P-10（Fail Safe）> P-01（Glossary First）
 | ADR-0005 Workflow | P-04, P-02 |
 | ADR-0006 Memory | P-11 |
 | ADR-0008 Validation | P-08 |
-| ADR-0009 Security | P-09, P-10 |
+| ADR-0009 Security | P-09, P-10, P-14 |
 | ADR-0010 Domain Expansion | P-03, P-11, P-13 |
 | ADR-0011 Runtime | P-02, P-04, P-12 |
 | ADR-0013 Storage | P-05 |
 | ADR-0014 Communication | P-02, P-03 |
-| ADR-0015 Deployment | P-06, P-12 |
+| ADR-0015 Deployment | P-06, P-12, P-14 |
 | GLOSS-001 Glossary | P-01, P-11 |
 
 ---
@@ -211,3 +232,4 @@ P-09（Audit Everything）> P-10（Fail Safe）> P-01（Glossary First）
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，從所有 ADR 蒸餾 12 個架構原則 |
 | 1.1 | 2026-06-29 | 新增 P-13 No New Domain Before Proven Value（流程閘門，由 GOVR-003 強制執行）|
+| 1.2 | 2026-06-29 | 新增 P-14 Secrets Never Leave the Runtime（最高安全層級，與 P-09/P-10 同級）|

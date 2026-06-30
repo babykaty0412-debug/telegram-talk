@@ -16,17 +16,29 @@
 5. **Decide notification** P1/P2/skip (`notify.ts`, deterministic; BR-MKT-10/11)
 6. **Confidence** — AI outputs `confidence` on every judgment
 
-The AI step uses **`claude-haiku-4-5`** — the exact model DOMAIN-001 §12 names for the
-analyzer, so this is a faithful test of the production choice. All AI access goes through
-the `AIProvider` seam (`aiProvider.ts`), the only file importing the Anthropic SDK (P-07).
+### Provider- and model-agnostic
+
+The validation flow does not depend on a specific AI vendor or model. All AI access goes
+through the `AIProvider` seam (`aiProvider.ts`, the only file importing a vendor SDK — P-07).
+The **execution environment** chooses the provider and model via env vars:
+
+- `MARKETPLACE_MVP_PROVIDER` — default `anthropic`; adding another vendor = add a class
+  implementing `AIProvider`, no domain-logic change.
+- `MARKETPLACE_MVP_MODEL` — default `claude-haiku-4-5` (the model DOMAIN-001 §12 names for
+  the analyzer, so the default is a faithful test of the production choice).
+
+Each provider reads **its own** credential from the environment. Per **P-14 (Secrets Never
+Leave the Runtime)**, no key is ever passed in code, written to docs, committed, or pasted
+into a chat — only env vars / a Secret Manager.
 
 ## Run it
 
 ```bash
 npm install
 
-# Real run — needs an Anthropic API key (never hardcode it; ADR-0009/0015):
-export ANTHROPIC_API_KEY=sk-ant-...
+# Real run — provider credential comes from your environment (P-14). For the default
+# Anthropic provider, set ANTHROPIC_API_KEY in your shell or Secret Manager. Never commit it.
+export ANTHROPIC_API_KEY=...      # not echoed, not stored in the repo
 npm start
 
 # Offline wiring check — no key, no AI (uses a transparent stub analyzer):

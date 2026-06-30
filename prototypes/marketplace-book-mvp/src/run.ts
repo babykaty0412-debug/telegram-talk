@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { AnthropicProvider, type AIProvider, type GenerateJSONParams } from './aiProvider.js';
+import { createProvider, type AIProvider, type GenerateJSONParams } from './aiProvider.js';
 import { MarketplaceBookValueAnalyzer } from './bookValueAnalyzer.js';
 import { parseFacebookBookPost, type RawFacebookPost } from './facebookBookParser.js';
 import { matchWatchRule } from './watchRuleMatcher.js';
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   const rule = loadJSON<WatchRule>('fixtures/watchrule.json');
   const posts = loadJSON<RawFacebookPost[]>('fixtures/posts.json');
 
-  const provider: AIProvider = DRY ? new StubProvider() : new AnthropicProvider();
+  const provider: AIProvider = DRY ? new StubProvider() : createProvider();
   const analyzer = new MarketplaceBookValueAnalyzer(provider, MODEL);
 
   console.log(`Marketplace Book MVP — provider=${provider.label} model=${DRY ? '(none)' : MODEL}`);

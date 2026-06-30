@@ -39,7 +39,7 @@ date: 2026-06-29
 | [glossary.md](./glossary.md) | 31 個核心術語：Anti-Definition、Canonical Name、Stability、Ownership、Relationships | Accepted v2.0 |
 | [concept-map.md](./concept-map.md) | 平台層次圖、八層架構、全域關係矩陣、關鍵互動模式、概念邊界速查 | Accepted v1.0 |
 | [naming-convention.md](./naming-convention.md) | 命名決策樹、Domain 元件命名、Event/Task/Workflow 命名規則、禁止模式 | Accepted v1.0 |
-| [architecture-principles.md](./architecture-principles.md) | 12 個架構原則（P-01 Glossary First ～ P-12 Graceful Degradation）| Accepted v1.0 |
+| [architecture-principles.md](./architecture-principles.md) | 14 個架構原則（P-01 Glossary First ～ P-14 Secrets Never Leave the Runtime）| Accepted v1.2 |
 
 ---
 

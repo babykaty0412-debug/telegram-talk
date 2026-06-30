@@ -1,28 +1,48 @@
-// AIProvider seam — the ONLY module allowed to import the Anthropic SDK (P-07).
-// Business logic (the analyzer) depends on the AIProvider interface, never on the SDK.
-// Swapping providers, adding retries/rate-limiting, or routing to a different model
-// happens here without touching domain logic.
+// AIProvider seam (P-07). Business logic (the analyzer) depends ONLY on the AIProvider
+// interface — never on a concrete SDK or a specific model. Which provider/model runs is
+// decided by the EXECUTION ENVIRONMENT, not the domain logic.
+//
+// P-14 (Secrets Never Leave the Runtime): providers read their own credentials from the
+// environment (env var / Secret Manager). The caller never passes a key — it only gets a
+// Provider instance back. Adding a new provider = add a class here implementing AIProvider;
+// no domain code changes. Anthropic below is the current instantiation, not the definition.
 
 import Anthropic from '@anthropic-ai/sdk';
 
 export interface GenerateJSONParams {
   system: string;
   user: string;
-  /** JSON Schema constraining the output (Anthropic structured outputs). */
+  /** Output shape the analyzer expects (provider-agnostic; given to the model as guidance). */
   schema: Record<string, unknown>;
+  /** Model id, supplied by the execution environment. */
   model: string;
 }
 
 export interface AIProvider {
-  /** Returns the model's response parsed as JSON, validated against `schema`. */
+  /** Returns the model's response parsed as JSON. */
   generateJSON(params: GenerateJSONParams): Promise<unknown>;
   readonly label: string;
 }
 
-/** Real provider. Reads ANTHROPIC_API_KEY from the environment (never hardcoded). */
+/**
+ * Select the provider from the execution environment.
+ * MARKETPLACE_MVP_PROVIDER picks the implementation (default: anthropic).
+ * Each provider resolves its own credential from the env (P-14) — never from here.
+ */
+export function createProvider(name = process.env.MARKETPLACE_MVP_PROVIDER ?? 'anthropic'): AIProvider {
+  switch (name) {
+    case 'anthropic':
+      return new AnthropicProvider();
+    // Future: case 'openai': return new OpenAIProvider();  — same interface, no domain change.
+    default:
+      throw new Error(`Unknown MARKETPLACE_MVP_PROVIDER: ${name}`);
+  }
+}
+
+/** Anthropic instantiation. Reads ANTHROPIC_API_KEY from the environment (never hardcoded). */
 export class AnthropicProvider implements AIProvider {
   readonly label = 'anthropic';
-  private client = new Anthropic(); // resolves ANTHROPIC_API_KEY from env
+  private client = new Anthropic(); // resolves ANTHROPIC_API_KEY from env (P-14)
 
   async generateJSON(params: GenerateJSONParams): Promise<unknown> {
     // JSON is requested via prompt instruction (version-robust across SDK releases).

@@ -29,11 +29,12 @@ tags: [product-validation, execution, golden-dataset, benchmark, replay, marketp
 |---|---|
 | 6 步驟管線（解析→判斷商品→判斷價格→WatchRule→通知建議→Confidence）| ✅ 已實作 |
 | 確定性部分（Parser / WatchRuleMatcher / Notification）| ✅ 已驗證（`npm run dry` 端到端跑通 + `tsc` 通過）|
-| AI 判斷步驟（claude-haiku-4-5，透過 AIProvider 介面 P-07）| ⏳ 已實作，**待真實 API Key 執行** |
+| AI 判斷步驟（透過 AIProvider 介面 P-07；Provider 與模型由執行環境決定）| ⏳ 已實作，**待擁有金鑰的執行環境執行** |
 | Template v1.1 是否需要修改 | ❌ 否（MVP 僅用既有設計，無新缺口）|
 
-> 說明：本沙箱無 `ANTHROPIC_API_KEY`，且不挪用 Claude Code 的內部憑證，故 AI 步驟尚未實跑。  
-> 設定金鑰後 `npm start` 即可產生真實判斷，成為下方 #6 Price Analysis Accuracy 的種子。
+> 說明：依 **P-14（機密永不離開執行環境）**，金鑰不交給 AI、不進對話、不進文件。  
+> 由 **System Owner 在本機執行**（路線 1）：在自己的環境設定 Provider 金鑰後 `npm start`，  
+> 產生真實判斷，回傳結果共同 Review。這成為下方 #6 Price Analysis Accuracy 的種子。
 
 ---
 
@@ -63,7 +64,7 @@ Product Validation 尚無法產出真實結果，因為它依賴以下**無法�
 實作最小可運行的管線（單一平台，如 Shopee；硬編碼一個 WatchRule；無錯誤處理），足以：
 - 真實抓取 listing（真實 Collector）
 - 真實解析（真實 Parser）→ 可量測 **Parser Accuracy**
-- 真實呼叫 AI 分析（透過 AIProvider，目標模型 claude-haiku-4-5）→ 可量測 **Price Analysis Accuracy**
+- 真實呼叫 AI 分析（透過 AIProvider 介面；Provider 與模型由執行環境提供，預設 claude-haiku-4-5）→ 可量測 **Price Analysis Accuracy**
 - 真實偵測售出（重複抓取同一 URL）→ 可量測 **Sold Detection Accuracy**
 - 真實渲染通知 → 可量測 **Notification Accuracy**
 
@@ -187,8 +188,25 @@ Alert Acceptance = 使用者標記「這通知有用」的數量 / 總通知數
 1. **不捏造指標**：任何準確率/通過判定必須來自真實量測，不得估算或虛構。
 2. **標註與分析分離**：Ground Truth 由使用者提供，AI 不得同時標註與分析同一資料。
 3. **模型透明**：若 Replay 使用非生產模型，必須在報告中標明，結果僅作設計原型評估。
+3b. **機密永不離開執行環境（P-14）**：金鑰只在執行環境（環境變數 / Secret Manager）；不交給 AI、不進對話、不進文件、不進 Git。驗證不得要求把金鑰交給第三方。
 4. **失敗照實報告**：若 AI 準確率不達門檻，照實記錄並進入 GOVR-007 根因分析，不美化。
 5. **若過程需改 Template**：先回報原因 → Owner 決定 → 記錄到 GOVR-008 Template Evolution History（不自行擴張）。
+
+---
+
+## 八之一、AI Provider 抽象與機密管理（P-14）
+
+> Product Validation 驗證的是**平台能力**，不是特定 API。流程因此不綁定任何 AI 廠商或模型。
+
+| 設計點 | 規則 |
+|---|---|
+| **AI Provider 由執行環境提供** | 業務邏輯只依賴 `AIProvider` 介面（P-07）。Provider 以環境變數選擇（`MARKETPLACE_MVP_PROVIDER`，預設 anthropic）。新增廠商 = 新增一個實作 `AIProvider` 的類別，不改 Domain 邏輯。|
+| **模型由執行環境提供** | 模型以環境變數指定（`MARKETPLACE_MVP_MODEL`，預設 claude-haiku-4-5）。驗證流程不寫死模型。|
+| **金鑰由環境變數 / Secret Manager 管理** | 各 Provider 自行從執行環境讀取自己的憑證。呼叫端**不傳入明文金鑰**。|
+| **機密永不離開執行環境（P-14）** | 金鑰不寫入 Git、文件、AI 對話；`.env` 一律 gitignore，只提交 `.env.example`（無值）。|
+
+**目前實例**：以 Anthropic 作為 Provider、claude-haiku-4-5 作為模型，完成 Marketplace MVP 驗證。  
+這是**目前的一個實例，不是唯一方案**——文件與流程均不假設 Anthropic 是唯一選擇。
 
 ---
 
