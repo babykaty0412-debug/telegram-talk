@@ -3,9 +3,9 @@ doc_type: governance
 doc_id: GOVR-003
 title: Domain Maturity Model
 status: accepted
-version: "1.3"
+version: "1.4"
 date: 2026-06-29
-related: [GOVR-001, GOVR-002, GOVR-004, GOVR-005, GOVR-006, GOVR-007, TMPL-001, ADR-0010]
+related: [GOVR-001, GOVR-002, GOVR-004, GOVR-005, GOVR-006, GOVR-007, TMPL-001, ADR-0010, ARCH-003]
 tags: [domain, maturity, quality, governance, golden-domain]
 ---
 
@@ -226,7 +226,25 @@ Level 5 (Reusable / Golden Domain)
 
 | Domain | doc_id | 當前等級 | 狀態名稱 | 最後等級更新 | 備註 |
 |---|---|---|---|---|---|
-| marketplace | DOMAIN-001 | **Level 2** | Validated | 2026-06-29 | 通過 Level 2 審查（REV-MKT-001 v1.1，Major 歸零）；下一步 Product Validation Gate |
+| marketplace | DOMAIN-001 | **Level 2** | Validated | 2026-06-29 | 通過 Level 2 審查（REV-MKT-001 v1.1，Major 歸零）；進行中：Product Validation（GOVR-PV-MKT-002）|
+| stocks | （未建立）| — | — | — | 🔒 受 P-13 閘門封鎖：Marketplace 通過 Product Validation 前不得開始 |
+
+---
+
+## 六之一、跨 Domain 推進規則（P-13 強制執行）
+
+> 本節將架構原則 **P-13 — No New Domain Before Proven Value** 落實為可執行的閘門。
+
+**規則**：在 PAOS 中，**同時只能有一個 Domain 處於「首次驗證」狀態**。在現役 Domain 完成 **Product Validation Gate**（GOVR-004，於真實資料上證明價值）之前，**不得開始設計或實作下一個 Domain**。
+
+| 階段 | 證明了什麼 | 可否開始下一個 Domain？ |
+|---|---|---|
+| Level 2（Validated）| 架構可行 | ❌ 否——架構可行不等於有價值 |
+| **Product Validation 通過** | **產品有真實價值** | ✅ 是——後繼 Domain 可複製已驗證的方法 |
+
+**當前套用**：Marketplace 已達 Level 2，但**尚未通過 Product Validation**。因此 **Stocks Domain 目前被封鎖**，直到 Marketplace 在真實資料上證明價值。
+
+**例外**：唯一的例外是「為了驗證 Template 通用性而做的 Dry-Run 設計演練」（不產生正式 Domain 文件、不進入 Registry），如 GOVR-PV-MKT-001 Phase 1 所述的 Stocks Dry-Run。
 
 ---
 
@@ -279,3 +297,4 @@ Level 5: Reusable     ← 第一個 Golden Domain
 | 1.1 | 2026-06-27 | 新增 Product Validation Gate（PV-G1~G8）於 Level 2 → Level 3 之間；更新等級速查表和路徑圖 |
 | 1.2 | 2026-06-29 | 精簡第八節路徑圖，完整路徑移至 marketplace-roadmap.md（GOVR-PV-MKT-001）|
 | 1.3 | 2026-06-29 | Registry 更新：Marketplace 晉升 Level 2（Validated），依 REV-MKT-001 v1.1 |
+| 1.4 | 2026-06-29 | 新增第六之一節：P-13（No New Domain Before Proven Value）強制執行規則；Stocks 標記為受閘門封鎖 |

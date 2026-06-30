@@ -1,0 +1,24 @@
+{
+  "dataset_version": "1.0",
+  "domain": "marketplace",
+  "status": "pending_annotation",
+  "_status_note": "Scaffold only. entries[] is intentionally EMPTY. Real listings must be collected and annotated by a human (see GOVR-006 and GOVR-PV-MKT-002). Do NOT fill this with AI-generated ground truth — that would invalidate every accuracy measurement.",
+  "created_at": "2026-06-29",
+  "schema_ref": "GOVR-006 §4.1 GoldenListing",
+  "target_size": 30,
+  "current_real_entries": 0,
+  "distribution_targets": {
+    "platform": { "shopee": 15, "yahoo_auction": 10, "ruten": 5 },
+    "verdict": { "great_deal": 6, "good_deal": 6, "fair_price": 6, "overpriced": 6, "suspicious": 6 },
+    "category_min_each": { "books": 6, "lego": 6, "electronics": 6, "cameras": 6, "furniture": 6 },
+    "difficulty": { "easy": "40%", "medium": "40%", "hard": "20%" },
+    "mandatory_hard_cases": {
+      "obvious_scam": 3,
+      "confusing_low_price": 3,
+      "description_photo_mismatch": 2,
+      "no_photos": 2,
+      "new_seller_good_price": 2
+    }
+  },
+  "entries": []
+}

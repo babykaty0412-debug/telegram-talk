@@ -100,6 +100,7 @@ date: 2026-06-29
 | [governance/template-evolution-policy.md](./governance/template-evolution-policy.md) | Template 演進政策與驗證史（GOVR-008）：穩定度生命週期（Experimental→Stable）、2-Domain 驗證原則、Template Validation History | Accepted v1.0 |
 | [governance/execution-boundary.md](./governance/execution-boundary.md) | 自主執行邊界（GOVR-009）：AI 與 Owner 的決策權責、Milestone 內自主範圍、四類必須請示事項 | Accepted v1.0 |
 | [governance/product-validation/marketplace-roadmap.md](./governance/product-validation/marketplace-roadmap.md) | Marketplace Roadmap（GOVR-PV-MKT-001）：7 階段完整生命週期、各階段 Entry/Exit Criteria、Prototype 驗收標準、Performance KPI、Golden Domain 條件、風險清單 | Accepted v1.0 |
+| [governance/product-validation/marketplace-pv-execution-plan.md](./governance/product-validation/marketplace-pv-execution-plan.md) | Marketplace 產品驗證執行計畫（GOVR-PV-MKT-002）：8 項驗證操作化、兩條執行路徑、Golden Dataset 計畫、Manual Baseline 工具、誠信規則 | In Progress v1.0 |
 | [governance/reviews/marketplace-v1.0-level2-review.md](./governance/reviews/marketplace-v1.0-level2-review.md) | Marketplace Level 2 審查報告（REV-MKT-001）：9 維度評分、Reusability Assessment、架構風險、Conditional Pass | Accepted v1.0 |
 
 ---

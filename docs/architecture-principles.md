@@ -3,8 +3,8 @@ doc_type: architecture
 doc_id: ARCH-003
 title: PAOS Architecture Principles
 status: accepted
-version: "1.0"
-date: 2026-06-27
+version: "1.1"
+date: 2026-06-29
 related: [GLOSS-001, ARCH-001, ARCH-002]
 tags: [principles, architecture, design, constraints]
 ---
@@ -152,6 +152,21 @@ const rules = await knowledgeRepo.findByDomain('stocks')
 
 ---
 
+### P-13：No New Domain Before Proven Value（價值證明前不擴張）
+
+**來源**：GOVR-003, GOVR-004, 本專案演進經驗（Marketplace 作為第一個被驗證的 Domain）  
+**規則**：在現有 Domain 通過 **Product Validation**（在真實資料上證明對使用者有實際價值）之前，**不開始設計或實作下一個 Domain**。  
+**階段對應**：
+- **Level 2** 證明*架構*可行（系統建得正確）
+- **Product Validation** 證明*產品*可行（建的東西真的有用）
+- 唯有產品價值被真實證明，才啟動第二個 Domain
+
+**Why**：架構可行不等於產品有價值。先讓一個 Domain 真正證明有用，後繼 Domain 才有「**已被驗證的方法**」可以複製。否則 PAOS 會變成「擁有很多 Domain、卻沒有一個被真正驗證」的平台。  
+**違反後果**：累積一堆未驗證的 Domain，技術債與維護成本上升，且沒有可複製的成功方法。  
+**性質**：這是一條**流程閘門（process gate）**原則，由 GOVR-003 成熟度模型強制執行；不與 P-01~P-12 的技術衝突優先級競爭。
+
+---
+
 ## 原則優先級
 
 當兩個原則衝突時，以下優先級適用：
@@ -181,7 +196,7 @@ P-09（Audit Everything）> P-10（Fail Safe）> P-01（Glossary First）
 | ADR-0006 Memory | P-11 |
 | ADR-0008 Validation | P-08 |
 | ADR-0009 Security | P-09, P-10 |
-| ADR-0010 Domain Expansion | P-03, P-11 |
+| ADR-0010 Domain Expansion | P-03, P-11, P-13 |
 | ADR-0011 Runtime | P-02, P-04, P-12 |
 | ADR-0013 Storage | P-05 |
 | ADR-0014 Communication | P-02, P-03 |
@@ -195,3 +210,4 @@ P-09（Audit Everything）> P-10（Fail Safe）> P-01（Glossary First）
 | 版本 | 日期 | 說明 |
 |---|---|---|
 | 1.0 | 2026-06-27 | 初版，從所有 ADR 蒸餾 12 個架構原則 |
+| 1.1 | 2026-06-29 | 新增 P-13 No New Domain Before Proven Value（流程閘門，由 GOVR-003 強制執行）|
