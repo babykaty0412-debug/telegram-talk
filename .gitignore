@@ -15,3 +15,17 @@
 # 放行 PAOS 架構文件
 !docs/
 !docs/**
+
+# 放行 PAOS 原型程式碼（Path A Lite MVP）。逐一放行，避免帶入 node_modules / .env
+!prototypes/
+!prototypes/marketplace-book-mvp/
+!prototypes/marketplace-book-mvp/src/
+!prototypes/marketplace-book-mvp/src/**
+!prototypes/marketplace-book-mvp/fixtures/
+!prototypes/marketplace-book-mvp/fixtures/**
+!prototypes/marketplace-book-mvp/package.json
+!prototypes/marketplace-book-mvp/package-lock.json
+!prototypes/marketplace-book-mvp/tsconfig.json
+!prototypes/marketplace-book-mvp/.env.example
+!prototypes/marketplace-book-mvp/.gitignore
+!prototypes/marketplace-book-mvp/README.md

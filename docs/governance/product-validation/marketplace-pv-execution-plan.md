@@ -20,6 +20,23 @@ tags: [product-validation, execution, golden-dataset, benchmark, replay, marketp
 
 ---
 
+## 〇、進度：Path A Lite Prototype 已建立（2026-06-29）
+
+採用 Path A 的最小版本（**Path A Lite**）：單一平台 Facebook、單一類型二手書，目標只驗證  
+「AI 能否正確判斷一篇貼文是否值得通知」。程式碼位於 `prototypes/marketplace-book-mvp/`。
+
+| 項目 | 狀態 |
+|---|---|
+| 6 步驟管線（解析→判斷商品→判斷價格→WatchRule→通知建議→Confidence）| ✅ 已實作 |
+| 確定性部分（Parser / WatchRuleMatcher / Notification）| ✅ 已驗證（`npm run dry` 端到端跑通 + `tsc` 通過）|
+| AI 判斷步驟（claude-haiku-4-5，透過 AIProvider 介面 P-07）| ⏳ 已實作，**待真實 API Key 執行** |
+| Template v1.1 是否需要修改 | ❌ 否（MVP 僅用既有設計，無新缺口）|
+
+> 說明：本沙箱無 `ANTHROPIC_API_KEY`，且不挪用 Claude Code 的內部憑證，故 AI 步驟尚未實跑。  
+> 設定金鑰後 `npm start` 即可產生真實判斷，成為下方 #6 Price Analysis Accuracy 的種子。
+
+---
+
 ## ⚠️ 一、目前狀態（誠實聲明）
 
 **狀態：Blocked — 等待真實世界輸入。**

@@ -1,0 +1,20 @@
+{
+  "name": "marketplace-book-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Path A Lite MVP: validate whether AI can correctly judge if one Facebook secondhand-book post is worth notifying (DOMAIN-001 / GOVR-PV-MKT-002).",
+  "scripts": {
+    "start": "tsx src/run.ts",
+    "dry": "tsx src/run.ts --dry",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

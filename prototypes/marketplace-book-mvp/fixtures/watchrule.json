@@ -1,0 +1,9 @@
+{
+  "name": "找二手程式設計書",
+  "keywords": ["程式", "程式設計", "演算法", "資料結構", "python", "javascript", "重構", "clean code"],
+  "exclude_keywords": ["影印", "盜版", "缺頁", "徵求", "徵"],
+  "max_total_price": 500,
+  "min_condition": "good",
+  "min_deal_score": 0.6,
+  "notification_priority": "P1"
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "_note": "Illustrative test inputs only — NOT Golden Dataset ground truth (see GOVR-006).",
+    "text": "出售《重構：改善既有程式的設計》第二版 中文版\n九成新，無畫線無筆記，書況很好\n原價 880，售 NT$320 含運\n台北可面交",
+    "image_count": 3
+  },
+  {
+    "text": "Clean Code 無瑕的程式碼 中文版 二手\n八成新，有少量鉛筆畫線可擦\n售 280 元，面交免運",
+    "image_count": 2
+  },
+  {
+    "text": "《Python 設計模式》全新未拆封\n要價 950 含運（蝦皮代購回來的）\n誠可議",
+    "image_count": 1
+  },
+  {
+    "text": "演算法聖經《Introduction to Algorithms》中文版 限時出清\n只要 NT$90！！全新！盒裝！\n無法面交僅郵寄，匯款後寄出\n賣家無評價",
+    "image_count": 0
+  },
+  {
+    "text": "徵求《資料結構與演算法》二手書，狀況好的，預算 300 以內，台中面交",
+    "image_count": 0
+  },
+  {
+    "text": "IKEA 二手書架便宜賣 NT$400，自取",
+    "image_count": 2
+  },
+  {
+    "text": "經典小說《百年孤寂》二手 良好 售 150 元 面交",
+    "image_count": 1
+  },
+  {
+    "text": "免費贈送 程式設計入門講義一疊，自取，無書況保證",
+    "image_count": 1
+  }
+]
