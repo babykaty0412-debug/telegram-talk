@@ -1,8 +1,8 @@
 ﻿# Telegram Bot 守護腳本（每 10 分鐘由排程觸發）
 # 只看「結構健康」，不用心跳猜額度（安靜沒人傳訊時心跳本來就停，不代表壞）：
 #   Layer 1：Bot 進程死了 → 自動重啟，失敗則 npm 修復
-#   Layer 2：TG 接收槽被另一個 --channels 進程搶走 → 靜默重啟奪回
-#   Layer 3：Bot 活著但收訊進程(bun poller)不在 → 殭屍 → 重啟
+#   Layer 2：偵測到多個 --channels 進程（重複 bot）→ 全清後重啟一個
+#   Layer 3：Bot 活著但沒有屬於它的收訊進程(bun poller) → 殭屍 → 重啟
 # 健康就靜默結束。判斷壞沒壞另有 bot-health.ps1。
 
 $ErrorActionPreference = 'Continue'
@@ -26,14 +26,49 @@ function Send-Telegram([string]$Message) {
     }
 }
 
+function Get-ChannelBots {
+    return @(Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
+        Where-Object { $_.CommandLine -match '--channels' })
+}
+
 function Test-BotAlive {
-    return (@(Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
-        Where-Object { $_.CommandLine -match '--channels' }).Count -ge 1)
+    # 重試 3 次：Win32_Process.CommandLine 會間歇回 null，一次查不到不代表真的死
+    # 注意：Get-ChannelBots 回傳單一元素會被 PowerShell 解包成純量，call site 必須 @() 重新包陣列
+    for ($i = 0; $i -lt 3; $i++) {
+        if (@(Get-ChannelBots).Count -ge 1) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
+# 有任一 server.ts bun 是這個 bot 的子孫 → 收訊進程健康（不取 -First 1，避免孤兒 bun 誤判）
+# 重試 3 次：CommandLine 間歇 null 會讓 bun 查不到，一次沒查到不代表真的沒 poller
+function Test-BotHasPoller([int]$BotPid) {
+    for ($retry = 0; $retry -lt 3; $retry++) {
+        $buns = @(Get-CimInstance Win32_Process -Filter "Name='bun.exe'" |
+            Where-Object { $_.CommandLine -match 'server\.ts' })
+        foreach ($b in $buns) {
+            $p = $b.ParentProcessId
+            for ($i = 0; $i -lt 8 -and $p; $i++) {
+                if ($p -eq $BotPid) { return $true }
+                $anc = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
+                if (-not $anc) { break }
+                $p = $anc.ParentProcessId
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
 }
 
 function Kill-Bot {
+    # 殺 --channels bot
     Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
         Where-Object { $_.CommandLine -match '--channels' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    # 一併清掉 telegram bun，避免孤兒 bun 佔住接收槽
+    Get-CimInstance Win32_Process -Filter "Name='bun.exe'" |
+        Where-Object { $_.CommandLine -match 'server\.ts' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Seconds 3
 }
@@ -51,7 +86,6 @@ function Start-Bot {
 if (-not (Test-BotAlive)) {
 
     WLog "[DEAD] Bot session not found. Restarting..."
-    . "E:\claude\daily\common.ps1"
 
     if (Start-Bot) {
         WLog "[RESTARTED] Bot is back."
@@ -82,35 +116,34 @@ if (-not (Test-BotAlive)) {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Layer 2：進程活著 → 確認 TG 接收槽沒被另一個 --channels 搶走
+# Layer 2：多個 --channels 進程（重複 bot）→ 全清後重啟一個
+# 用 count 判斷，不依賴 Get-CimInstance 回傳順序
 # ─────────────────────────────────────────────────────────────────────────────
 
-$botProc = Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
-    Where-Object { $_.CommandLine -match '--channels' } |
-    Select-Object -First 1
+$channelBots = @(Get-ChannelBots)
 
-# 只比對有 --channels 的進程：互動 session 的 stream-json worker 不會搶 TG 槽
-$lastChannelProc = Get-CimInstance Win32_Process -Filter "Name='claude.exe'" |
-    Where-Object { $_.CommandLine -match '--channels' } |
-    Sort-Object CreationDate -Descending |
-    Select-Object -First 1
+# 防護：Layer 1 已確認 bot 活著，這裡若查到 0 個必是 WMI 瞬時 null → 靜默結束，別誤動作
+if ($channelBots.Count -eq 0) {
+    WLog "[TRANSIENT] Bot alive per Layer1 but query returned 0 (WMI null). Skipping."
+    exit 0
+}
 
-if ($botProc -and $lastChannelProc -and ($botProc.ProcessId -ne $lastChannelProc.ProcessId)) {
-    $stealerTime = $lastChannelProc.CreationDate.ToString('HH:mm')
-    WLog "[TG-SLOT-STOLEN] Bot PID $($botProc.ProcessId) started at $($botProc.CreationDate.ToString('HH:mm')), but PID $($lastChannelProc.ProcessId) started at $stealerTime took the slot. Restarting bot..."
+if ($channelBots.Count -gt 1) {
+    WLog "[DUP-BOT] $($channelBots.Count) --channels processes found. Killing all and restarting one..."
     Kill-Bot
     if (Start-Bot) {
-        WLog "[TG-SLOT-RESTORED] Bot restarted and now holds TG slot."
-        # 槽被搶是開新 Claude 視窗的正常副作用，靜默修好即可（不發通知）
+        WLog "[DUP-BOT-RESTORED] Single bot restored."
     } else {
-        WLog "[TG-SLOT-RESTORE-FAIL] Bot restart failed."
-        Send-Telegram "⚠️ TG 接收槽被搶，Bot 重啟失敗，請手動雙擊 E:\claude\Claude Telegram.bat（$(Get-Date -Format 'HH:mm')）"
+        WLog "[DUP-BOT-FAIL] Restart failed."
+        Send-Telegram "⚠️ 偵測到多個 Bot 進程，清理後重啟失敗，請手動雙擊 E:\claude\Claude Telegram.bat（$(Get-Date -Format 'HH:mm')）"
     }
     exit 0
 }
 
+$botProc = $channelBots[0]
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Layer 3：結構健康 — Bot 活著但收訊進程(bun poller)不在 → 殭屍 → 重啟
+# Layer 3：結構健康 — Bot 活著但沒有屬於它的收訊進程(bun poller) → 殭屍 → 重啟
 # 不再用心跳猜額度：沒人傳訊時心跳本來就停，重啟也救不了額度，只會洗版。
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -121,24 +154,8 @@ if ($botAgeMin -lt 15) {
     exit 0
 }
 
-# telegram bun(server.ts) 必須存在且是 bot 的子孫進程
-$serverBun = Get-CimInstance Win32_Process -Filter "Name='bun.exe'" |
-    Where-Object { $_.CommandLine -match 'server\.ts' } |
-    Select-Object -First 1
-
-$bunHealthy = $false
-if ($serverBun) {
-    $p = $serverBun.ParentProcessId
-    for ($i = 0; $i -lt 8 -and $p; $i++) {
-        if ($p -eq $botProc.ProcessId) { $bunHealthy = $true; break }
-        $anc = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
-        if (-not $anc) { break }
-        $p = $anc.ParentProcessId
-    }
-}
-
-if (-not $bunHealthy) {
-    WLog "[ZOMBIE] Bot alive but telegram poller(bun) missing/orphaned. Restarting..."
+if (-not (Test-BotHasPoller $botProc.ProcessId)) {
+    WLog "[ZOMBIE] Bot alive but no telegram poller(bun) belongs to it. Restarting..."
     Kill-Bot
     if (Start-Bot) {
         WLog "[ZOMBIE-RESTORED] Bot restarted with healthy poller."

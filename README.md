@@ -1,63 +1,126 @@
 # telegram-talk
 
 Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守護排程。
+**本 repo 含遷移到新電腦所需的全部可攜檔案；照「🖥️ 新電腦部署」即可重建。**
 
 ## 核心限制
 
-**一個 bot token 同時只能有一個 `getUpdates` 消費者（poller）。** 多個 process 同時 poll → 最後啟動的會用 stale-holder 邏輯（讀 `bot.pid` 殺掉前一個）奪取接收槽。出站（發訊息）任何 process 都行；入站只有持槽者收得到。
+**一個 bot token 同時只能有一個 `getUpdates` 消費者（poller）。** 多個 process 同時 poll → 最後啟動的用 stale-holder（讀 `bot.pid` 殺前一個）奪取接收槽。出站任何 process 都行；入站只有持槽者收得到 → 所以要「專屬 bot 獨佔槽、互動 session 不載入 telegram」。
 
-## 架構與關鍵修法（2026-06-24）
+---
 
-### 根因：互動 session 搶接收槽
-全域 `~/.claude/settings.json` 的 `enabledPlugins.telegram@claude-plugins-official: true` → 每個互動 Claude Code session 都被自動載入 telegram plugin 並啟動 poller，比專屬 bot 晚啟動就搶走槽，而互動 session 忙著服務桌面對話、不回覆 TG → bot 形同失聯。
+## 📁 檔案清單（repo 檔 → 部署位置）
 
-### 修法
-1. **全域關閉**：`settings.json` → `enabledPlugins.telegram@claude-plugins-official: false`（互動 session 不再 poll、不搶槽）
-2. **bot 單獨開啟**：`Claude Telegram.bat` 用 `--settings bot-settings.json` 載入 installed 版 telegram
-   ```
-   claude --channels plugin:telegram@claude-plugins-official --settings "E:\claude\bot-settings.json"
-   ```
+| repo 檔 | 部署到 | 作用 |
+|---------|--------|------|
+| `Claude Telegram.bat` | `<工具根>\` | production 啟動（`--settings`）|
+| `bot-settings.json` | `<工具根>\` | bot 專用：單獨開啟 installed 版 telegram plugin |
+| `telegram-watchdog.ps1` | `<工具根>\` | 守護（每 10 分鐘）：死了/重複/殭屍才重啟，只看結構健康 |
+| `telegram-daily-restart.ps1` | `<工具根>\` | 每日 06:00 重啟（需管理員建排程）|
+| `bot-health.ps1` | `<工具根>\` | 一眼健檢：`& <工具根>\bot-health.ps1` → ✅/❌，exit 0/1 |
+| `tg-check.ps1` | `~\.claude\hooks\` | UserPromptSubmit hook：bot 壞了才提醒（純本地檢查）|
 
-### 🚫 `--plugin-dir` 陷阱（別用）
-用 `--plugin-dir` 載入會變成「inline」識別碼，與 `--channels` 指名的「@claude-plugins-official」(installed) 不符 → debug log 報 `Channel notifications skipped`，bot 收到訊息也不處理。**必須用 `--settings`。**
+`<工具根>` 舊機是 `E:\claude`。
 
-### ⚠️ 副作用
-全域關閉後，互動 session 不再有 telegram MCP 工具（reply/react）。需要從互動 session 發訊息到 TG 時，改用直接 API（`Invoke-RestMethod` + bot token）。
+---
 
-## 檔案
+## 🖥️ 新電腦部署（完整步驟）
 
-| 檔案 | 作用 |
+### 0. 前置（先裝好）
+- **Claude Code** 已安裝並登入 Claude 帳號
+- **telegram plugin 已安裝進 cache**（bot 靠 `--channels ... --settings` 啟用 installed 版）。用 `/plugin` 裝 `telegram@claude-plugins-official` 一次即可
+- **node**（本機用 nvm4w，路徑 `C:\nvm4w\nodejs`）與 **bun**（`~\.bun\bin\bun.exe`）已裝且在 PATH
+- 已有 **Telegram bot**（同一個 bot token）與你的 chat_id
+
+### 1. clone 本 repo
+clone 到工具根目錄（建議沿用 `E:\claude`，可省去改路徑）：
+```
+git clone https://github.com/babykaty0412-debug/telegram-talk.git E:\claude
+```
+
+### 2. 改硬編碼路徑（若新機帳號/磁碟不同才需要）
+find-replace 這些字串（`Claude Telegram.bat` + 所有 `.ps1`）：
+
+| 舊值 | 改成 |
 |------|------|
-| `Claude Telegram.bat` | production 啟動（`--settings`）|
-| `bot-settings.json` | bot 專用：單獨開啟 telegram plugin |
-| `telegram-watchdog.ps1` | 守護排程（每 10 分鐘）**只看結構健康**：進程死了重啟、接收槽被搶奪回、收訊進程(bun)不在(殭屍)重啟。2026-06-25 移除「用心跳猜額度」（安靜沒人傳訊心跳本來就停，舊版會誤判額度耗盡每 5h 發 ⏸️+🔄 洗版）。Layer 2 只比對 `--channels`，不誤判互動 worker |
-| `telegram-daily-restart.ps1` | 每日重啟（需用管理員建排程）|
-| `bot-health.ps1` | 一眼健檢（結構檢查，不需 bot 回覆、不耗額度）：`& E:\claude\bot-health.ps1` → `✅ 正常` / `❌ 壞了+原因`，exit 0/1 |
+| `E:\claude` | 新工具根 |
+| `C:\Users\21030502` | `C:\Users\<新使用者>` |
+| `C:\nvm4w\nodejs` | 新機 node 路徑 |
+| chat_id `729844447`（watchdog 通知用）| 你的 chat_id（同帳號則不變）|
 
-## 執行期檔案（不在版控）
+> hook 用 `$env:USERPROFILE`，帳號變也不用改。
 
-`bot-heartbeat.txt`（bot 每次真實回覆後更新）、`bot-quota-*.txt`、`telegram-watchdog.log`。
-
-## 驗證入站
-
-開 Telegram 桌面版 → 私訊 bot → 看回覆 + `bot-heartbeat.txt` 是否更新。
-
-## 權限設定（避免 bot 回覆被守門員攔，2026-06-26）
-
-`~/.claude/settings.json` 的 `permissions.allow` 需包含這幾個 TG 工具，否則 bot 每次回訊都被 PermissionRequest 守門員攔一下：
-
-```
-mcp__plugin_telegram_telegram__reply
-mcp__plugin_telegram_telegram__react
-mcp__plugin_telegram_telegram__edit_message
-mcp__plugin_telegram_telegram__download_attachment
+### 3. 重建 secrets（**不在 repo，手動建**）
+- `~\.claude\channels\telegram\.env` → 一行：`TELEGRAM_BOT_TOKEN=<你的token>`
+- `~\.claude\channels\telegram\access.json` → 允許名單，例：
+```json
+{ "dmPolicy": "allowlist", "allowFrom": ["<你的chat_id>"], "groups": {}, "pending": {} }
 ```
 
-另：守門員 prompt 已把「網路搜尋（WebSearch）、抓公開非敏感網頁（WebFetch）」列入自動允許；抓非公開／內網／個資／金流網址仍會 ask。
+### 4. 併入 `~\.claude\settings.json`（合併，別覆蓋既有）
+```json
+{
+  "enabledPlugins": { "telegram@claude-plugins-official": false },
+  "permissions": { "allow": [
+    "WebSearch",
+    "mcp__plugin_telegram_telegram__reply",
+    "mcp__plugin_telegram_telegram__react",
+    "mcp__plugin_telegram_telegram__edit_message",
+    "mcp__plugin_telegram_telegram__download_attachment"
+  ]},
+  "hooks": { "UserPromptSubmit": [ { "hooks": [ {
+    "type": "command",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:USERPROFILE\\.claude\\hooks\\tg-check.ps1\"",
+    "shell": "powershell", "timeout": 12
+  } ] } ] }
+}
+```
+- `enabledPlugins.telegram=false` → 互動 session 不搶槽（**關鍵**）
+- allow 那 5 條 → bot 回訊不被權限守門員攔
 
-⚠️ 改的是全域 user settings，**正在跑的 bot 要下次重啟才吃到新規則**。
+### 5. 裝 hook
+把 `tg-check.ps1` 複製到 `~\.claude\hooks\tg-check.ps1`。
+
+### 6. 建排程（**系統管理員 PowerShell**）
+```powershell
+# 守護每 10 分鐘
+$a=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NonInteractive -WindowStyle Hidden -File "E:\claude\telegram-watchdog.ps1"'
+$t=New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration ([TimeSpan]::MaxValue)
+Register-ScheduledTask -TaskName 'Telegram-Bot守護' -Action $a -Trigger $t -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) -RunLevel Highest -Force
+
+# 每日 06:00 重啟
+$a2=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NonInteractive -WindowStyle Hidden -File "E:\claude\telegram-daily-restart.ps1"'
+Register-ScheduledTask -TaskName 'Telegram-Bot每日六點重啟' -Action $a2 -Trigger (New-ScheduledTaskTrigger -Daily -At '06:00') -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) -RunLevel Highest -Force
+```
+
+### 7. 啟動 + 驗證
+```powershell
+# 啟動 bot
+Start-Process 'cmd.exe' -ArgumentList '/c','"E:\claude\Claude Telegram.bat"' -WindowStyle Minimized
+# 等約 70 秒後健檢
+& E:\claude\bot-health.ps1            # → ✅ Bot 正常
+```
+再用手機 Telegram 私訊 bot 發一則 → 看有沒有回覆。有回覆 = 部署成功。
+
+---
+
+## 架構重點（2026-06〜07）
+
+- **啟動只用 `Claude Telegram.bat`**（含 `--settings`）。別手動 `claude --channels`：全域 `enabledPlugins.telegram=false`，少了 `--settings` 會 `Channel notifications skipped`（收得到卻不回）。
+- **🚫 別用 `--plugin-dir`**：載入成 inline 識別碼，與 `--channels @claude-plugins-official` 不符 → 一樣 skipped。
+- **守護只看結構健康**（進程死/重複 bot/poller 不在才重啟），不用心跳猜額度（安靜沒人傳訊心跳本來就停，舊版會誤判額度耗盡狂發假警報）。
+- **副作用**：全域關 telegram 後，互動 session 沒有 telegram MCP 工具；要從互動 session 發訊到群組改用直接 API（`Invoke-RestMethod` + token）。
+
+## 腳本踩雷（改腳本前必看）
+
+破壞性動作（重啟/發通知）前一定要防這三個，否則發假警報：
+1. **PowerShell 單元素解包**：函式 `return @(...)` 只回 1 個會被解包成純量，call site 對它 `.Count` = 空白 → 誤判。**call site 一律 `@(Get-X).Count`**。
+2. **`Win32_Process.CommandLine` 間歇 null**：偵測 bot/bun 前**重試 3 次**再下結論。
+3. **bun 別取 `-First 1`**：孤兒 bun 會選錯 → 檢查「有沒有任一 server.ts bun 是 bot 子孫」。
+
+## 執行期檔案（不在版控、不用遷移）
+`bot-heartbeat.txt`、`telegram-watchdog.log`、`bot.pid`。
 
 ## 注意
-
-- bot token 在 `~/.claude/channels/telegram/.env`（**不在本 repo**，絕不外洩）
-- `telegram-watchdog.ps1` 內含通知用的 chat_id（非憑證；私有 repo）
+- bot token 在 `~\.claude\channels\telegram\.env`（**絕不進 repo / 不外洩**）
+- `telegram-watchdog.ps1` 內含通知用 chat_id（非憑證；私有 repo）
