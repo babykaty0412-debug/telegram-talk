@@ -6,9 +6,17 @@
 # 放行版控目標
 !.gitignore
 !README.md
+!CLAUDE.md
 !Claude Telegram.bat
 !bot-settings.json
 !telegram-watchdog.ps1
 !telegram-daily-restart.ps1
 !bot-health.ps1
 !tg-check.ps1
+
+# 文件與 skills（結構化維運知識，非 secrets）
+!docs/
+!docs/**
+!.claude/
+!.claude/skills/
+!.claude/skills/**
