@@ -80,6 +80,17 @@ function Start-Bot {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 防併發：已有另一個 watchdog 或 daily-restart 在跑 → 讓位（避免兩者同時重啟的 race，
+# 例如 06:00 daily-restart 殺 bot、watchdog 同刻判 [DEAD] 也去重啟）
+# ─────────────────────────────────────────────────────────────────────────────
+$others = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+    Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'telegram-watchdog|telegram-daily-restart' })
+if ($others.Count -gt 0) {
+    WLog "[SKIP] Another watchdog/daily-restart running (PID $($others[0].ProcessId)). Yielding."
+    exit 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Layer 1：Bot 進程死了 → 重啟
 # ─────────────────────────────────────────────────────────────────────────────
 

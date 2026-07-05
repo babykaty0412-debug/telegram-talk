@@ -83,10 +83,11 @@ find-replace 這些字串（`Claude Telegram.bat` + 所有 `.ps1`）：
 
 ### 6. 建排程（**系統管理員 PowerShell**）
 ```powershell
-# 守護每 10 分鐘
+# 守護每 10 分鐘（-RepetitionDuration 用有限天數，別用 [TimeSpan]::MaxValue 會報 XML 格式錯）
 $a=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NonInteractive -WindowStyle Hidden -File "E:\claude\telegram-watchdog.ps1"'
-$t=New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration ([TimeSpan]::MaxValue)
-Register-ScheduledTask -TaskName 'Telegram-Bot守護' -Action $a -Trigger $t -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) -RunLevel Highest -Force
+$t=New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
+$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName 'Telegram-Bot守護' -Action $a -Trigger $t -Settings $s -RunLevel Highest -Force
 
 # 每日 06:00 重啟
 $a2=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NonInteractive -WindowStyle Hidden -File "E:\claude\telegram-daily-restart.ps1"'

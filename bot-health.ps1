@@ -45,16 +45,18 @@ if ($bot -and -not $botBun) {
     $reasons += 'bot 沒有屬於自己的收訊進程(bun server.ts) → 收不到訊息（殭屍或被搶槽）'
 }
 
-# 3. bun 有連到 Telegram（重試一次避免瞬時無連線誤報）
+# 3. bun 有連到 Telegram（重試避免瞬時無連線誤報）
+# 用 RemotePort 443 判斷，不看 IP：server.ts 只連 Telegram，且 Telegram 有 IPv4+IPv6 多網段，
+# 寫死 IP 會漏判（實測 bot 走 IPv6 2001:67c:4e8::）
 if ($botBun) {
     $connected = $false
     for ($try = 0; $try -lt 2 -and -not $connected; $try++) {
         if ($try -gt 0) { Start-Sleep -Seconds 2 }
         $conns = Get-NetTCPConnection -OwningProcess $botBun.ProcessId -State Established -ErrorAction SilentlyContinue |
-            Where-Object { $_.RemoteAddress -match '^149\.154\.|^91\.108\.' }
+            Where-Object { $_.RemotePort -eq 443 }
         if ($conns) { $connected = $true }
     }
-    if (-not $connected) { $ok = $false; $reasons += 'bun 無 Telegram 連線（149.154/91.108）→ 沒在 poll' }
+    if (-not $connected) { $ok = $false; $reasons += 'bun 無 443 連線 → 沒在 poll Telegram' }
 }
 
 # 4. bot.pid 對齊（非致命，僅提示）
