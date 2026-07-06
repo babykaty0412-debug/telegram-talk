@@ -9,6 +9,18 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 
 ---
 
+## 🩺 出問題先跑這個 — 一鍵診斷
+
+bot 沒回、腳本報錯、搬機卡住——不管什麼狀況，先跑：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "E:\claude\diagnose.ps1"
+```
+
+它會依序檢查 10 大項（軟體 → 檔案 → secrets → 設定 → 硬編路徑 → 進程 → 排程 → Telegram API → log），每個 `[X ]` 直接附修法，**由上而下修**（前面的問題常是後面的根因）。修不動就把**完整輸出**全選複製貼給 Claude（不含 token，可安全貼）。
+
+---
+
 ## 📁 檔案清單（repo 檔 → 部署位置）
 
 | repo 檔 | 部署到 | 作用 |
@@ -18,6 +30,7 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 | `telegram-watchdog.ps1` | `<工具根>\` | 守護（每 10 分鐘）：死了/重複/殭屍才重啟，只看結構健康 |
 | `telegram-daily-restart.ps1` | `<工具根>\` | 每日 06:00 重啟（需管理員建排程）|
 | `bot-health.ps1` | `<工具根>\` | 一眼健檢：`& <工具根>\bot-health.ps1` → ✅/❌，exit 0/1 |
+| `diagnose.ps1` | `<工具根>\` | **一鍵診斷**：10 大項全面健檢，`[X ]` 附修法，輸出可直接貼給 Claude |
 | `tg-check.ps1` | `~\.claude\hooks\` | UserPromptSubmit hook：bot 壞了才提醒（純本地檢查）|
 
 `<工具根>` 舊機是 `E:\claude`。
