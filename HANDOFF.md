@@ -35,3 +35,33 @@ Windows PC 上跑的 Telegram bot（手機端對話 Claude）+ 守護排程。�
 - 改守護/健檢腳本前，先讀 `README.md`「腳本踩雷」：call site 一律 `@(Get-X).Count`、WMI null 重試 3 次、bun 別取 `-First 1`、TCP 看 **443** 不看 IP、併發要讓位。
 - Git：push 前確認 commit short hash **不含「4」**；push 前給摘要等使用者 OK。
 - 回報前**實測**貼證據；「改好了」要工具驗過才說。
+
+---
+
+# 交接：整機搬遷（MIGRATION.md）＋ 上好網站拆分（2026-07-13）
+
+> 另一條工作線的交接（與上面 TG bot 交接並存）。本機 memory 對應檔：`migration_handoff.md`、`shanghao_site_rebuild.md`。
+
+## 一句話現況
+`MIGRATION.md`（整機搬遷總指南，本 repo 內）已寫完＋經 **24-agent 全面邏輯審查（27 條確認漏洞）**、文件面漏洞已全數修正並 push。上好網站已拆成 3 repo 且全部推上 GitHub，只剩 FTP 部署。
+
+## 搬機這條線：已完成
+- `MIGRATION.md` 進版控（白名單放行），涵蓋：repo clone 清單、機密檔手搬清單（含 TG token / Google OAuth token.json）、§4f 不同路徑帳號的全域替換 SOP（已修 PS5.1 ANSI 亂碼雷、雙反斜線/正斜線變體、`~\.claude` 第二掃描根）、§4g 非版控資料夾、§7 機密小包打包（已修同名攤平互蓋雷）
+- 各 repo 未推缺口已清（job-search / multi-model 由各自 session 推掉）
+
+## 搬機這條線：待使用者決定（新 session 請逐項確認再動）
+1. 🚨 **telegram-talk repo 是 PUBLIC**（審查實測未登入可讀）——本檔與 MIGRATION.md 含環境細節、個人 chat_id。**建議使用者到 GitHub Settings 轉 private**（AI 不可代操作權限變更）
+2. `projects/player` 零 commit 零 remote——要留就 init+建 repo push，不留就在 MIGRATION.md 標「不搬」
+3. 家目錄 memory repo（`C:\Users\21030502\.git`）無 remote——要雲端化需建 **private** repo（memory 含個人工作脈絡）
+4. `daily` 的 `podcast_state/episodes.json` 有未 commit 的播放進度——搬機前最後一刻 commit+push（屬「早上自動化凍結區」，動前先問）
+5. Cursor 設定實際在 `%APPDATA%\Cursor`（`E:\claude\cursor\` 是空的，文件已更正）——搬機時要另外匯出
+6. `shanghao-admin/.env.production` 已進 git（內容僅公開 worker 網址，文件已註記「保持非機密」）——若要改成 ignore+`git rm --cached` 再議
+
+## 上好網站（shanghao）這條線：現況
+- **拆分完成**：shanghao-web（前台，已去 Element Plus，CSS 465→107kB）／shanghao-admin（後台，Element Plus SPA，base=/shanghao/admin/）／shanghao-worker（後端 CF Workers，未動）。舊 Express 在 shanghao-admin.git 的 `legacy-express` 分支
+- **待辦＝部署**：兩包 dist FTP 上智邦——前台 → `public_html/shanghao/`（先清空）、後台 → `public_html/shanghao/admin/`；上傳後驗 `.htaccess` 前後台互動（深層路由重整）。步驟見 shanghao-web repo 的 `DEPLOY.md`
+- 踩雷備忘：dev 用 `localhost` 別用 `127.0.0.1`（worker CORS）；測 babykaty.com 要帶瀏覽器 UA（智邦擋無 UA 的 curl 回 500，別誤判成站掛了）
+
+## 審查完整輸出（本機才有）
+27 條發現全文（JSON，`result.confirmed`）：
+`C:\Users\21030502\AppData\Local\Temp\claude\C--Users-21030502\f39ecf12-99e8-4471-a5a6-0a4a40055585\tasks\w3d443lv1.output`
