@@ -6,6 +6,7 @@
 # 放行版控目標
 !.gitignore
 !README.md
+!HANDOFF.md
 !Claude Telegram.bat
 !bot-settings.json
 !telegram-watchdog.ps1
