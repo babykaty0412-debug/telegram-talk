@@ -3,14 +3,16 @@ doc_type: vision
 doc_id: INDEX-001
 title: PAOS Documentation Index
 status: accepted
-version: "1.8"
-date: 2026-06-29
+version: "1.9"
+date: 2026-07-13
 ---
 
 # PAOS 文件總索引
 
 > 這是整個 PAOS 文件系統的入口點。  
 > **AI 接手時請從這裡開始閱讀。**
+>
+> 🔀 **跨 Session / 跨裝置 / 跨瀏覽器接手**：先讀 [session-handoff.md](./session-handoff.md)（HANDOFF-001），一讀即可無縫接續目前進度與下一步。
 
 ---
 
@@ -29,6 +31,14 @@ date: 2026-06-29
 ---
 
 ## 文件地圖
+
+### 接手與交接（Handoff）
+
+| 文件 | 說明 | 狀態 |
+|---|---|---|
+| [session-handoff.md](./session-handoff.md) | 跨 Session / 跨裝置接手說明（HANDOFF-001）：現況一句話、Git 座標、MVP 位置與跑法、被 Blocked 的第一份 PV Report 需要哪些輸入、下一步、不可違反護欄 | Living v1.0 |
+
+---
 
 ### 通用語言（Ubiquitous Language）
 
@@ -73,6 +83,16 @@ date: 2026-06-29
 | 文件 | 說明 | 狀態 |
 |---|---|---|
 | [architecture/domains/marketplace.md](./architecture/domains/marketplace.md) | Marketplace Domain：多平台二手商品監控（蝦皮、Yahoo、露天）| Accepted v1.1（Level 2）|
+
+---
+
+### 程式碼原型（Prototypes）
+
+> PAOS 的第一段可執行程式碼。原型不是正式產品，位於 `prototypes/`，用於 Product Validation。
+
+| 位置 | 說明 | 狀態 |
+|---|---|---|
+| [prototypes/marketplace-book-mvp/](../prototypes/marketplace-book-mvp/) | Marketplace Path A Lite MVP：判斷單篇 Facebook 二手書貼文是否值得通知。單平台、單品類、無 DB/Dashboard/排程。AI 存取經 `aiProvider.ts`（P-07 seam），Provider/Model 由環境變數決定（P-14） | ✅ 可執行；型別檢查通過；`npm run dry` 通過。真實 `npm start` 待使用者本機執行 |
 
 ---
 
@@ -163,9 +183,12 @@ date: 2026-06-29
 
 ---
 
-*最後更新：2026-06-29*  
+*最後更新：2026-07-13*  
 *ADR 總數：15 份（ADR-0001 ~ ADR-0015），全部 Accepted*  
+*架構原則：14 條（P-01 ~ P-14），architecture-principles v1.2（含 P-14 Secrets Never Leave the Runtime）*  
 *Glossary：GLOSS-001 v2.0，31 個核心術語（Anti-Definition + Canonical/Aliases + Stability + Ownership + Relationships）*  
 *通用語言文件：4 份（glossary, concept-map, naming-convention, architecture-principles）*  
 *Domain 文件：1 份（marketplace v1.1，Level 2 Validated），模板：1 份（domain-template v1.1 Experimental）*  
-*治理框架：10 份（GOVR-001~003 架構驗證 + GOVR-004~007 產品驗證 + GOVR-008 Template 演進 + GOVR-009 執行邊界 + GOVR-PV-MKT-001 Marketplace Roadmap）+ 審查紀錄 1 份（REV-MKT-001）*
+*治理框架：10 份（GOVR-001~003 架構驗證 + GOVR-004~007 產品驗證 + GOVR-008 Template 演進 + GOVR-009 執行邊界 + GOVR-PV-MKT-001 Marketplace Roadmap）+ 審查紀錄 1 份（REV-MKT-001）*  
+*程式碼原型：1 份（prototypes/marketplace-book-mvp — Path A Lite MVP，PAOS 第一段可執行程式碼）*  
+*接手指南：session-handoff.md（HANDOFF-001，Living v1.0）*
