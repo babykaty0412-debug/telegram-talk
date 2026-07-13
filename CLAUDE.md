@@ -2,6 +2,10 @@
 
 給在本 repo 工作的 Claude Code session（含 bot 自己的互動 session）快速定位用。細節一律在 `docs/` 或對應 skill，這裡只放「你現在在哪、別踩什麼」。
 
+## ⚠️ 進行中：PC → 雲端工作流評估
+
+使用者正在評估把工作流改成雲端（動機：跨瀏覽器使用），但 **bot 本體要不要一起搬離 PC 尚未決定**。新 session 開始前**必讀** `docs/HANDOFF.md`，裡面有現況、待確認的方案選項、和「先跟使用者確認再動手」的提醒。這段完成後可以刪除本節。
+
 ## 這是什麼
 
 Windows 機器上用 Claude Code 跑一個 Telegram bot（手機對話 Claude）+ 一組守護排程（watchdog/daily-restart/health-check）。本 repo 是「遷移到新電腦所需的全部可攜檔案」，即開機重建的來源。
