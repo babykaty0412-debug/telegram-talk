@@ -18,6 +18,7 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 | `telegram-watchdog.ps1` | `<工具根>\` | 守護（每 10 分鐘）：死了/重複/殭屍才重啟，只看結構健康 |
 | `telegram-daily-restart.ps1` | `<工具根>\` | 每日 06:00 重啟（需管理員建排程）|
 | `bot-health.ps1` | `<工具根>\` | 一眼健檢：`& <工具根>\bot-health.ps1` → ✅/❌，exit 0/1 |
+| `diagnose-console-flash.ps1` | `<工具根>\` | 抓「畫面一直閃黑框」的元凶（見疑難排解）|
 | `tg-check.ps1` | `~\.claude\hooks\` | UserPromptSubmit hook：bot 壞了才提醒（純本地檢查）|
 
 `<工具根>` 舊機是 `E:\claude`。
@@ -118,6 +119,57 @@ Start-Process 'cmd.exe' -ArgumentList '/c','"E:\claude\Claude Telegram.bat"' -Wi
 1. **PowerShell 單元素解包**：函式 `return @(...)` 只回 1 個會被解包成純量，call site 對它 `.Count` = 空白 → 誤判。**call site 一律 `@(Get-X).Count`**。
 2. **`Win32_Process.CommandLine` 間歇 null**：偵測 bot/bun 前**重試 3 次**再下結論。
 3. **bun 別取 `-First 1`**：孤兒 bun 會選錯 → 檢查「有沒有任一 server.ts bun 是 bot 子孫」。
+
+---
+
+## 🔍 疑難排解：畫面每隔一段時間閃黑框 / 黑影
+
+### ⚠️ 先量測，不要猜（2026-07-27 血淚教訓）
+
+看到黑框就直覺認定「一定是我那個排程」→ 改排程 → 還在閃 → 再猜 → 再改…
+實際繞了三輪都改錯對象，**真兇是 Docker Desktop，跟排程完全無關**。
+
+**症狀是「週期性閃爍」時，第一步永遠是抓行程證據，不是動手改任何設定。**
+
+### 用法
+
+```powershell
+& E:\claude\diagnose-console-flash.ps1 -Minutes 3
+```
+
+原理：Windows 每建立一個 console 視窗就會生一支 `conhost.exe`。腳本高頻取樣，
+記錄新出現的 conhost **父行程是誰**，最後印出「元凶排行」——次數最高的就是它，
+時間戳間隔就是它的週期（每 10 秒 / 每 10 分鐘…），可直接對照排程設定。
+
+### 已知元凶
+
+| 元凶 | 頻率 | 判斷依據 | 解法 |
+|------|------|----------|------|
+| **Docker Desktop 儀表板** | **每 10 秒 × 3 個** | 父行程 `Docker Desktop.exe --name=dashboard`，子行程跑 `docker stats --all` | **關掉 Docker Desktop 視窗**（點 X）。容器與引擎照常運作，只是不再 GUI 輪詢；要看容器再從系統匣開 |
+| 排程的 `powershell.exe` | 每 10 分鐘各 1 次 | 父行程 `svchost.exe`（= Task Scheduler 拉起）| 量少可忽略。要根治見下方 |
+| 排程直接跑 `.bat` | 依排程頻率 | 會**停著十幾秒**而非一閃即逝 | 改用 wscript + vbs 隱藏啟動器（見 `stock-info/run_monitor_hidden.vbs`）|
+
+> 實測數據：1 分鐘內 Docker 製造 33 個 console，所有排程加起來只有 1 個。
+> 排程從來不是主因——**量級差 30 倍**。
+
+### 排程視窗根治法（真的需要時才用）
+
+`-WindowStyle Hidden` **擋不住閃爍**：powershell.exe 是先建 console 再隱藏，那一瞬間一定會閃。
+真正零閃只有讓任務不接桌面——把排程改成 **S4U 登入類型**（跑在 session 0，無桌面可畫視窗，且不需存密碼）：
+
+```powershell
+$p = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType S4U -RunLevel Limited
+Set-ScheduledTask -TaskName '排程名稱' -Principal $p
+```
+
+### 踩雷
+
+- **`.ps1` 含中文要存成 UTF-8 with BOM**。PowerShell 5.1 讀無 BOM 的 UTF-8 會把中文解析錯，
+  直接噴 `Unexpected token` 語法錯誤（本腳本第一版就是這樣掛掉的）。
+- **短命行程抓不到**：`docker stats` 這種瞬間生滅的，用 `Get-Process` 事後查一定是空的，
+  必須高頻取樣（本腳本用 200ms）才抓得到命令列。
+
+---
 
 ## 執行期檔案（不在版控、不用遷移）
 `bot-heartbeat.txt`、`telegram-watchdog.log`、`bot.pid`。
