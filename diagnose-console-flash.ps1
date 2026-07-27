@@ -1,63 +1,127 @@
 ﻿# diagnose-console-flash.ps1
-# 診斷「畫面每隔一段時間閃黑框/黑影」的元凶。
+# 診斷「畫面每隔一段時間閃黑框 / 藍框」的元凶。
 #
-# 原理：Windows 每建立一個 console 視窗就會生一個 conhost.exe。
-#       只要抓「新出現的 conhost 的父行程是誰」，就能直接指認元凶，
-#       不必靠猜（猜錯會改到無辜的排程，白繞好幾圈）。
+# 兩層偵測（缺一不可）：
+#   1. 可見視窗（EnumWindows + IsWindowVisible）
+#      ← 這才是「真正會閃出來的東西」。務必優先看這個排行。
+#   2. 新建 conhost.exe
+#      ← console 物件被建立。注意：有 conhost 不代表視窗看得見
+#        （用 wscript 隱藏啟動後 conhost 照樣會生，但從未顯示）。
 #
 # 用法：
-#   & E:\claude\diagnose-console-flash.ps1              # 預設監控 3 分鐘
-#   & E:\claude\diagnose-console-flash.ps1 -Minutes 11  # 想涵蓋 10 分鐘週期的排程就設 11
+#   & E:\claude\diagnose-console-flash.ps1              # 預設 3 分鐘
+#   & E:\claude\diagnose-console-flash.ps1 -Minutes 11  # 涵蓋 10 分鐘週期的排程
 #
-# 讀法：看輸出末尾的「元凶排行」。同一個父行程高頻出現 = 就是它。
-#       時間戳的間隔就是它的週期（每 10 秒 / 每 10 分鐘…），可用來對照排程設定。
+# 先問顏色可以少繞很多路：藍底 = PowerShell、黑底 = cmd。
+# 已知元凶與解法見 README「疑難排解」。
 
 param(
-    [int]$Minutes = 3,
+    [double]$Minutes = 3,
     [string]$OutFile = "$env:TEMP\console-flash-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-# conhost = console 視窗宿主，出現即代表有視窗被畫出來（即使瞬間關閉）
-# 其餘為常見的 console 程式，一併記錄以便追鏈
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class FlashWin {
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr h);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int c);
+  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out uint pid);
+  public static string Title(IntPtr h) {
+    int n = GetWindowTextLength(h);
+    if (n == 0) return "";
+    StringBuilder sb = new StringBuilder(n + 1);
+    GetWindowText(h, sb, sb.Capacity);
+    return sb.ToString();
+  }
+}
+"@
+
+# console 程式清單（conhost 是關鍵：每個 console 視窗都會生一個）
 $watch = @('conhost','cmd','powershell','pwsh','python','pythonw',
            'wscript','cscript','node','docker','docker-compose')
 
-$seen    = @{}
-$culprit = @{}   # 父行程 → 次數
+$scanWin = {
+    $cur = @{}
+    $cb = [FlashWin+EnumProc]{
+        param($h, $l)
+        if ([FlashWin]::IsWindowVisible($h)) { $cur[$h] = $true }
+        return $true
+    }
+    [void][FlashWin]::EnumWindows($cb, [IntPtr]::Zero)
+    return $cur
+}
 
-# 先記下既有行程，避免把「監控開始前就在跑的」誤報成新事件
-foreach ($p in Get-Process -Name $watch) { $seen[$p.Id] = $true }
+$seenProc = @{}
+$seenWin  = @{}
+$procHits = @{}
+$winHits  = @{}
 
-$header = "=== console 閃爍診斷 開始 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')（監控 $Minutes 分鐘）==="
-$header | Tee-Object -FilePath $OutFile
+# 基準線：監控開始前就存在的不算
+foreach ($p in Get-Process -Name $watch) { $seenProc[$p.Id] = $true }
+foreach ($h in (& $scanWin).Keys)        { $seenWin[$h] = $true }
+
+"=== console 閃爍診斷 開始 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')（監控 $Minutes 分鐘）===" |
+    Tee-Object -FilePath $OutFile
 Write-Host "記錄檔：$OutFile`n"
 
 $end = (Get-Date).AddMinutes($Minutes)
 while ((Get-Date) -lt $end) {
-    foreach ($p in Get-Process -Name $watch) {
-        if ($seen.ContainsKey($p.Id)) { continue }
-        $seen[$p.Id] = $true
 
+    # ── 1. 可見視窗（真正會閃的）──
+    foreach ($h in (& $scanWin).Keys) {
+        if ($seenWin.ContainsKey($h)) { continue }
+        $seenWin[$h] = $true
+        $wpid = 0
+        [void][FlashWin]::GetWindowThreadProcessId($h, [ref]$wpid)
+        $wpr = Get-Process -Id $wpid
+        $wn  = if ($wpr) { $wpr.Name } else { '(已結束)' }
+        $winHits[$wn] = [int]$winHits[$wn] + 1
+        "[{0}] * 可見視窗 {1}(pid={2}) 標題='{3}'" -f `
+            (Get-Date -Format 'HH:mm:ss.fff'), $wn, $wpid, [FlashWin]::Title($h) |
+            Tee-Object -FilePath $OutFile -Append
+    }
+
+    # ── 2. 新建 console 行程 ──
+    foreach ($p in Get-Process -Name $watch) {
+        if ($seenProc.ContainsKey($p.Id)) { continue }
+        $seenProc[$p.Id] = $true
         $ci = Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)"
         if (-not $ci) { continue }
-
-        $pp     = Get-CimInstance Win32_Process -Filter "ProcessId=$($ci.ParentProcessId)"
-        $pName  = if ($pp) { $pp.Name } else { '(已結束)' }
-        $key    = "$pName"
-        $culprit[$key] = [int]$culprit[$key] + 1
-
-        $line = "[{0}] {1}(pid={2})`n    父: {3}({4})`n    父指令: {5}" -f `
-                (Get-Date -Format 'HH:mm:ss.fff'), $p.Name, $p.Id,
-                $pName, $ci.ParentProcessId, $(if ($pp) { $pp.CommandLine } else { '' })
-        $line | Tee-Object -FilePath $OutFile -Append
+        $pp    = Get-CimInstance Win32_Process -Filter "ProcessId=$($ci.ParentProcessId)"
+        $pName = if ($pp) { $pp.Name } else { '(已結束)' }
+        $procHits[$pName] = [int]$procHits[$pName] + 1
+        "[{0}] {1}(pid={2})`n    父: {3}({4})`n    父指令: {5}" -f `
+            (Get-Date -Format 'HH:mm:ss.fff'), $p.Name, $p.Id,
+            $pName, $ci.ParentProcessId, $(if ($pp) { $pp.CommandLine } else { '' }) |
+            Tee-Object -FilePath $OutFile -Append
     }
+
     Start-Sleep -Milliseconds 200
 }
 
-"`n=== 元凶排行（新建 console 次數）===" | Tee-Object -FilePath $OutFile -Append
-$culprit.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object {
-    "{0,6} 次  ←  {1}" -f $_.Value, $_.Key | Tee-Object -FilePath $OutFile -Append
+"`n=== 可見視窗排行（這才是真正會閃的東西）===" | Tee-Object -FilePath $OutFile -Append
+if ($winHits.Count -eq 0) {
+    "  （無）監控期間沒有任何新的可見視窗 → 畫面應該是乾淨的" | Tee-Object -FilePath $OutFile -Append
+} else {
+    $winHits.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object {
+        "{0,6} 次  <-  {1}" -f $_.Value, $_.Key | Tee-Object -FilePath $OutFile -Append
+    }
 }
+
+"`n=== 新建 console 排行（參考用；有 conhost 不代表看得見）===" | Tee-Object -FilePath $OutFile -Append
+if ($procHits.Count -eq 0) {
+    "  （無）" | Tee-Object -FilePath $OutFile -Append
+} else {
+    $procHits.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object {
+        "{0,6} 次  <-  {1}" -f $_.Value, $_.Key | Tee-Object -FilePath $OutFile -Append
+    }
+}
+
 "`n=== 結束 $(Get-Date -Format 'HH:mm:ss') ===" | Tee-Object -FilePath $OutFile -Append

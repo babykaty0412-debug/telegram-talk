@@ -13,5 +13,6 @@
 !telegram-daily-restart.ps1
 !bot-health.ps1
 !diagnose-console-flash.ps1
+!run-hidden.vbs
 !tg-check.ps1
 !MIGRATION.md

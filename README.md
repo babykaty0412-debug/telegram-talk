@@ -124,12 +124,23 @@ Start-Process 'cmd.exe' -ArgumentList '/c','"E:\claude\Claude Telegram.bat"' -Wi
 
 ## 🔍 疑難排解：畫面每隔一段時間閃黑框 / 黑影
 
-### ⚠️ 先量測，不要猜（2026-07-27 血淚教訓）
+### ⚠️ 先問顏色，再量測，最後才動手（2026-07-27 血淚教訓）
 
-看到黑框就直覺認定「一定是我那個排程」→ 改排程 → 還在閃 → 再猜 → 再改…
-實際繞了三輪都改錯對象，**真兇是 Docker Desktop，跟排程完全無關**。
+**第一句話該問的是「閃出來的視窗是什麼顏色」**：
 
-**症狀是「週期性閃爍」時，第一步永遠是抓行程證據，不是動手改任何設定。**
+| 顏色 | 是什麼 | 找誰 |
+|------|--------|------|
+| **藍底** | PowerShell 主控台 | 跑 `.ps1` 的排程 |
+| **黑底** | cmd 主控台 | 跑 `.bat` 的排程、或 Docker/其他程式叫的 CLI |
+
+那次繞了整整六輪（改川普排程→加 vbs→換 pythonw→查到 Docker→關視窗→還在閃），
+就是因為沒問顏色。使用者一說「藍底」，範圍立刻縮到「PowerShell 排程」，一次就中。
+
+**兩個元凶同時存在**（這也是為什麼修掉一個還在閃）：
+- 黑底、每 10 秒 → Docker Desktop 儀表板
+- 藍底、每 10 分鐘 → 三個 PowerShell 排程
+
+**症狀是「週期性閃爍」時，先問顏色 → 再抓證據 → 才動手改。**
 
 ### 用法
 
@@ -146,28 +157,63 @@ Start-Process 'cmd.exe' -ArgumentList '/c','"E:\claude\Claude Telegram.bat"' -Wi
 | 元凶 | 頻率 | 判斷依據 | 解法 |
 |------|------|----------|------|
 | **Docker Desktop 儀表板** | **每 10 秒 × 3 個** | 父行程 `Docker Desktop.exe --name=dashboard`，子行程跑 `docker stats --all` | **關掉 Docker Desktop 視窗**（點 X）。容器與引擎照常運作，只是不再 GUI 輪詢；要看容器再從系統匣開 |
-| 排程的 `powershell.exe` | 每 10 分鐘各 1 次 | 父行程 `svchost.exe`（= Task Scheduler 拉起）| 量少可忽略。要根治見下方 |
+| **排程的 `powershell.exe`** | **每 10 分鐘各 1 次** | **藍底**；父行程 `svchost.exe`（= Task Scheduler 拉起）| **改用 `run-hidden.vbs`**，見下方 |
 | 排程直接跑 `.bat` | 依排程頻率 | 會**停著十幾秒**而非一閃即逝 | 改用 wscript + vbs 隱藏啟動器（見 `stock-info/run_monitor_hidden.vbs`）|
 
 > 實測數據：1 分鐘內 Docker 製造 33 個 console，所有排程加起來只有 1 個。
 > 排程從來不是主因——**量級差 30 倍**。
 
-### 排程視窗根治法（真的需要時才用）
+### 排程視窗根治法：`run-hidden.vbs`
 
-`-WindowStyle Hidden` **擋不住閃爍**：powershell.exe 是先建 console 再隱藏，那一瞬間一定會閃。
-真正零閃只有讓任務不接桌面——把排程改成 **S4U 登入類型**（跑在 session 0，無桌面可畫視窗，且不需存密碼）：
+**`-WindowStyle Hidden` 完全擋不住閃爍**，實測鐵證（2026-07-27）：
+
+```
+[22:50:01.531] 行程 powershell(pid=29600) -WindowStyle Hidden ... telegram-watchdog.ps1
+[22:50:02.615] 視窗 powershell(pid=29600) ← 可見視窗真的出現了，晚了 1 秒多
+```
+
+原因：powershell.exe **先建立可見的 console 視窗，再套用隱藏樣式**，中間那一秒就是藍底閃現。
+
+解法是 `run-hidden.vbs`——`WshShell.Run(cmd, 0)` 在 **CreateProcess 當下**就指定 `SW_HIDE`，
+視窗自始至終不曾可見。排程動作改成：
+
+```
+程式：wscript.exe
+引數："E:\claude\run-hidden.vbs" powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\claude\你的腳本.ps1
+```
+
+批次套用（本機四個排程已用此法修正）：
 
 ```powershell
-$p = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType S4U -RunLevel Limited
-Set-ScheduledTask -TaskName '排程名稱' -Principal $p
+$map = @{
+  '多模型TG-Bot-守護-每10分鐘' = 'E:\claude\multi-model\watchdog.ps1'
+  '多模型TG-Bot-開機啟動'      = 'E:\claude\multi-model\watchdog.ps1'
+  'Telegram-Bot守護-每30分鐘'  = 'E:\claude\telegram-watchdog.ps1'
+  '自架網站-健檢通知'          = 'E:\claude\projects\selfhost-lab\scripts\site-health.ps1'
+}
+foreach ($name in $map.Keys) {
+  $arg = '"E:\claude\run-hidden.vbs" powershell.exe -NoProfile -ExecutionPolicy Bypass -File {0}' -f $map[$name]
+  Set-ScheduledTask -TaskName $name -Action (New-ScheduledTaskAction -Execute 'wscript.exe' -Argument $arg)
+}
 ```
+
+> **為什麼不用 S4U**：S4U 讓任務跑在 session 0（無桌面，確實不會閃），
+> 但 bot 守護腳本會**啟動 bot 進程**——跑在 session 0 的 bot 你看不到也管不到，
+> 等於修好閃爍卻弄壞 bot。vbs 保持在使用者 session，才是這裡的正解。
 
 ### 踩雷
 
 - **`.ps1` 含中文要存成 UTF-8 with BOM**。PowerShell 5.1 讀無 BOM 的 UTF-8 會把中文解析錯，
   直接噴 `Unexpected token` 語法錯誤（本腳本第一版就是這樣掛掉的）。
+- **`.vbs` 反過來——要存成 ASCII**。含中文註解又存 UTF-8 無 BOM 時，wscript 會靜默失敗：
+  `cscript` 回 exit 0、卻什麼都沒執行，最難查。`run-hidden.vbs` 因此全用英文註解。
 - **短命行程抓不到**：`docker stats` 這種瞬間生滅的，用 `Get-Process` 事後查一定是空的，
   必須高頻取樣（本腳本用 200ms）才抓得到命令列。
+- **「有 conhost」不等於「有看得見的視窗」**：修好後 `conhost` 照樣會被建立
+  （console 物件存在），但從未顯示。判斷有沒有閃要看**可見視窗**，不是數 conhost。
+  真正該用的偵測是 `EnumWindows` + `IsWindowVisible` 掃可見視窗（見下方腳本）。
+- **改完排程要看時間軸對不對**：曾誤以為修正無效，其實記錄檔涵蓋的時段全在修正之前。
+  比對前先確認「變更時間」和「記錄時間」的先後。
 
 ---
 
