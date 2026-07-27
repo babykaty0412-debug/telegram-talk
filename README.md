@@ -19,6 +19,8 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 | `telegram-daily-restart.ps1` | `<工具根>\` | 每日 06:00 重啟（需管理員建排程）|
 | `bot-health.ps1` | `<工具根>\` | 一眼健檢：`& <工具根>\bot-health.ps1` → ✅/❌，exit 0/1 |
 | `diagnose-console-flash.ps1` | `<工具根>\` | 抓「畫面一直閃黑框」的元凶（見疑難排解）|
+| `run-hidden.vbs` | `<工具根>\` | 排程隱藏啟動器：`-WindowStyle Hidden` 擋不住閃爍，這支才行 |
+| `docker-status.ps1` | `<工具根>\` | 取代 Docker Desktop 儀表板（開著會每 10 秒閃黑框）|
 | `tg-check.ps1` | `~\.claude\hooks\` | UserPromptSubmit hook：bot 壞了才提醒（純本地檢查）|
 
 `<工具根>` 舊機是 `E:\claude`。
@@ -156,12 +158,35 @@ Start-Process 'cmd.exe' -ArgumentList '/c','"E:\claude\Claude Telegram.bat"' -Wi
 
 | 元凶 | 頻率 | 判斷依據 | 解法 |
 |------|------|----------|------|
-| **Docker Desktop 儀表板** | **每 10 秒 × 3 個** | 父行程 `Docker Desktop.exe --name=dashboard`，子行程跑 `docker stats --all` | **關掉 Docker Desktop 視窗**（點 X）。容器與引擎照常運作，只是不再 GUI 輪詢；要看容器再從系統匣開 |
+| **Docker Desktop 儀表板** | **每 10 秒 × 3 個** | 黑底；父行程 `Docker Desktop.exe --name=dashboard`，子行程跑 `docker stats --all` | **關掉視窗，改用 `docker-status.ps1`**（見下方）。Docker 沒有任何設定能關掉這個輪詢 |
 | **排程的 `powershell.exe`** | **每 10 分鐘各 1 次** | **藍底**；父行程 `svchost.exe`（= Task Scheduler 拉起）| **改用 `run-hidden.vbs`**，見下方 |
 | 排程直接跑 `.bat` | 依排程頻率 | 會**停著十幾秒**而非一閃即逝 | 改用 wscript + vbs 隱藏啟動器（見 `stock-info/run_monitor_hidden.vbs`）|
 
 > 實測數據：1 分鐘內 Docker 製造 33 個 console，所有排程加起來只有 1 個。
 > 排程從來不是主因——**量級差 30 倍**。
+
+### Docker 黑框根治法：`docker-status.ps1`
+
+Docker Desktop 儀表板一開著就每 10 秒輪詢 `docker stats`，**沒有設定可以關**
+（查過 `%APPDATA%\Docker\settings-store.json`，只有 `AutoStart`，沒有輪詢開關）。
+所以解法是「不開儀表板也能管容器」：
+
+```powershell
+& E:\claude\docker-status.ps1                # 總覽：狀態 / 埠 / 資源用量（單次取樣）
+& E:\claude\docker-status.ps1 -Logs web      # 看日誌
+& E:\claude\docker-status.ps1 -Follow web    # 即時跟隨
+& E:\claude\docker-status.ps1 -Restart web   # 重啟單一容器
+& E:\claude\docker-status.ps1 -RestartAll    # 整組 compose restart
+& E:\claude\docker-status.ps1 -Web           # 測網站是否回應
+```
+
+只在你執行時跑一次，不輪詢 → 不閃。Docker 引擎照常在背景跑，容器不受影響。
+
+> **⚠️ 千萬別用儀表板的「暫停」鍵**：暫停容器對閃爍完全沒幫助（輪詢是視窗開著就跑，
+> 跟容器狀態無關），只會讓網站斷線。`docker-status.ps1` 偵測到暫停會用紅字警告並附上恢復指令。
+>
+> 若要徹底不裝 Docker Desktop（GUI 完全消失），得改用 WSL2 內原生 Docker Engine —— 
+> 那是一次搬遷（compose 檔、自動啟動、tunnel 都要重配），網站會有短暫停機，非必要不建議。
 
 ### 排程視窗根治法：`run-hidden.vbs`
 
