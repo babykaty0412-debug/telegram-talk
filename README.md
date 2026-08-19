@@ -21,6 +21,7 @@ Windows 上以 Claude Code 跑的 Telegram bot（手機端對話 Claude）+ 守�
 | `diagnose-console-flash.ps1` | `<工具根>\` | 抓「畫面一直閃黑框」的元凶（見疑難排解）|
 | `run-hidden.vbs` | `<工具根>\` | 排程隱藏啟動器：`-WindowStyle Hidden` 擋不住閃爍，這支才行 |
 | `docker-status.ps1` | `<工具根>\` | 取代 Docker Desktop 儀表板（開著會每 10 秒閃黑框）|
+| `whats-playing.ps1` | `<工具根>\` | 抓「沒叫它播卻有背景音」是哪個程式在出聲 |
 | `tg-check.ps1` | `~\.claude\hooks\` | UserPromptSubmit hook：bot 壞了才提醒（純本地檢查）|
 
 `<工具根>` 舊機是 `E:\claude`。
@@ -239,6 +240,68 @@ foreach ($name in $map.Keys) {
   真正該用的偵測是 `EnumWindows` + `IsWindowVisible` 掃可見視窗（見下方腳本）。
 - **改完排程要看時間軸對不對**：曾誤以為修正無效，其實記錄檔涵蓋的時段全在修正之前。
   比對前先確認「變更時間」和「記錄時間」的先後。
+
+---
+
+---
+
+## ⏸️ 刻意停用的排程（2026-08-19，使用者決定）
+
+**這些不是壞掉，是使用者主動要求關閉的。** 沒有新指示不要自作主張重新啟用。
+
+| 排程 | 原頻率 | 現況 | 影響 |
+|------|--------|------|------|
+| `多模型TG-Bot-守護-每10分鐘` | 每 10 分 | **停用** | ⚠️ **bot 掛掉不會自動重啟** |
+| `Telegram-Bot守護-每30分鐘` | 每 10 分 | **停用** | ⚠️ 同上 |
+| `川普發文監控` | 每 30 分 | **停用** | 新聞不再自動推 TG |
+| `Morning-2-Sequence` | 每天 06:00 | **停用** | 早上不再自動播 podcast |
+| `Morning-6-CloseAll` | 每天 07:30 | **停用** | 播放器關閉器（播放器都停了，留著沒意義）|
+| `Morning-8-PodcastStuckCheck` | 每天 06:23 | **停用** | 同上 |
+| `自架網站-健檢通知` | 每 10 分 | **改為每天 06:00** | 健檢頻率大幅降低 |
+
+仍在執行：`川普發文-早盤摘要`(09:00)、`川普發文-週報`(週一)、`多模型TG-Bot-開機啟動`(登入時)、
+`Morning-7-WeeklyCleanup`、`Morning-9-Heartbeat`，以及各項每日排程。
+
+**bot 守護停用後的手動流程**：
+```powershell
+& E:\claude\bot-health.ps1              # 先健檢：✅正常 / ❌壞了
+& "E:\claude\Claude Telegram.bat"       # 壞了才手動重啟
+```
+
+---
+
+## 🔊 疑難排解：沒叫它播卻有背景音
+
+```powershell
+& E:\claude\whats-playing.ps1 -Seconds 30
+```
+
+用 Core Audio API 讀每個音訊工作階段的**峰值音量**，峰值 > 0 = 此刻真的在出聲。
+幾秒內就能指認是哪個程式，不用猜。
+
+### 2026-08-19 案例：晨間 podcast 播到下午還在響
+
+`Morning-2-Sequence`（06:00）用 Chrome 播 podcast，`Morning-6-CloseAll`（07:30）負責關掉。
+那天關閉失敗，音樂一路播到下午：
+
+```
+[07:30:01] [WARN] [close] WebSocket 載入失敗…找不到組件 'System.Net.WebSockets'
+[07:30:01] [INFO] [close] 已殺 0 個 Chrome 進程    ← 一個都沒殺到
+```
+
+**根因（若日後要重新啟用晨間流程，這兩個 bug 要先修）**：
+1. `close_daily.ps1` 只殺命令列含 `yt_chrome` / `podcast1_chrome` / `podcast2_chrome`
+   標記的 Chrome，但實際在播的是**預設 profile 的 Chrome（無標記）**→ 永遠殺不到。
+2. `System.Net.WebSockets` 組件載不起來 → 播放狀態檢查每天都被跳過。
+
+### 踩雷
+
+- **峰值不能用來驗證靜音**：靜音後 app 仍在產生音訊、只是不送到喇叭，峰值照樣 > 0。
+  要驗證靜音得讀 `ISimpleAudioVolume.GetMute()`。
+- **設定與驗證要在同一次列舉內完成**：音訊工作階段會頻繁生滅，分兩次呼叫常常
+  「設定成功但讀回是舊值」，看起來像沒生效。
+- **Chrome 的音訊全走同一個 Audio Service 行程**（`--utility-sub-type=audio.mojom.AudioService`），
+  所以從 pid 查不到是哪個分頁。要找分頁得用 Chrome 工作管理員（Shift+Esc）或分頁上的喇叭圖示。
 
 ---
 
