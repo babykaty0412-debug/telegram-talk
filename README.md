@@ -258,9 +258,18 @@ foreach ($name in $map.Keys) {
 | `Morning-6-CloseAll` | 每天 07:30 | **停用** | 播放器關閉器（播放器都停了，留著沒意義）|
 | `Morning-8-PodcastStuckCheck` | 每天 06:23 | **停用** | 同上 |
 | `自架網站-健檢通知` | 每 10 分 | **改為每天 06:00** | 健檢頻率大幅降低 |
+| `川普發文-週報` | 每週一 09:00 | **已刪除** | 定義備份在 `E:\claude\backups\`（不在版控）|
 
-仍在執行：`川普發文-早盤摘要`(09:00)、`川普發文-週報`(週一)、`多模型TG-Bot-開機啟動`(登入時)、
-`Morning-7-WeeklyCleanup`、`Morning-9-Heartbeat`，以及各項每日排程。
+**已刪除的要復原**（`backups\` 不在版控，換機就沒了，需要的話先自行帶走）：
+```powershell
+Register-ScheduledTask -Xml (Get-Content 'E:\claude\backups\排程備份_川普發文-週報_20260819.xml' -Raw) -TaskName '川普發文-週報'
+```
+
+仍在執行：`川普發文-早盤摘要`(每天 09:00)、`多模型TG-Bot-開機啟動`(登入時)、
+`Morning-7-WeeklyCleanup`(每週 04:00，**保留**：清 Chrome 暫存 + 更新行政院行事曆快取，
+後者仍被其他排程用來判斷平假日)、`Morning-9-Heartbeat`(每天 06:05)，以及各項每日排程。
+
+**目前已無任何「每 10 分／每 30 分」的高頻排程**，最頻繁的自建排程是 `ShopeeAutoPromo`（每 4 小時）。
 
 **bot 守護停用後的手動流程**：
 ```powershell
