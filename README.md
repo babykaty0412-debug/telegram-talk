@@ -208,6 +208,19 @@ Docker Desktop 儀表板一開著就每 10 秒輪詢 `docker stats`，**沒有�
 引數："E:\claude\run-hidden.vbs" powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\claude\你的腳本.ps1
 ```
 
+**2026-08-24 補**：當初只修了 4 個高頻排程，其餘 16 個沒動 → 晚上照樣閃
+（17:00 工作日誌黑框、18:00 提醒、20:29 蝦皮、21:00 Gmail、00:29 蝦皮…）。
+現已把所有 `-File` 型的排程一併轉為 wscript 啟動（共 14 個）。
+
+**兩個刻意不轉**（轉了會壞）：
+- `ClaudeCode-AutoStart`：用 `-WindowStyle Minimized` 是故意的，隱藏會讓 Claude Code 消失
+- `每日-18點-工作日誌提醒`：本來就要彈對話框給人看，且參數含巢狀引號，重組會壞
+
+`.bat` 型的要包 `cmd /c`：
+```
+wscript.exe "E:\claude\run-hidden.vbs" cmd /c E:\claude\notion\auto-log.bat -TargetDay today
+```
+
 批次套用（本機四個排程已用此法修正）：
 
 ```powershell
